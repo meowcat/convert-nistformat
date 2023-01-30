@@ -41,8 +41,9 @@ chunk_data <- chunk_data[chunks_do,]
 mapping <- "mapping/nist-msp.yaml"
 mapping_out <- "mapping/massbank.yaml"
 
+fs::dir_create(target_folder, recurse = TRUE)
 
-profvis({
+
 walk2(
   chunk_data$start_id_per_chunk,
   chunk_data$files_chunks,
@@ -69,24 +70,24 @@ walk2(
       do_map(converting_blocks, ~ fill_missing_data(.x))
     message("\nexporting in MassBank format")
     target_filename <- glue("[target_folder]/{accession}.txt", .open = "[", .close = "]" )
-   do_walk(converting_blocks_completed, function(block) {
-     if(length(block) == 0) {
-       log_warn("Block completely empty; not exported")
-       return()
-     }
-     export(block,
-            MsBackendMapping(format = MsFormatMassbank(
-              parallel = FALSE,
-              progress = TRUE,
-              mapping = mapping_out
-            )),
-            file = target_filename,
-            progress = FALSE)  
+    do_walk(converting_blocks_completed, function(block) {
+      if(length(block) == 0) {
+        log_warn("Block completely empty; not exported")
+        return()
+      }
+      export(block,
+             MsBackendMapping(format = MsFormatMassbank(
+               parallel = FALSE,
+               progress = TRUE,
+               mapping = mapping_out
+             )),
+             file = target_filename,
+             progress = FALSE)
     }#, .progress = TRUE
     )
-   message(glue("\nChunk {file_in} completed")) 
+    message(glue("\nChunk {file_in} completed")) 
   }
 )
-})
+#})
 
   
