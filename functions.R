@@ -1,4 +1,5 @@
 library(logger)
+library(MetaboCoreUtils)
 molfiles_smi <- "hr_msms_nist_all.smi"
 smiles_table <- read_lines(molfiles_smi) %>%
   str_match("(.*)\\t(.*)\\?\\?(.*)$") %>%
@@ -119,11 +120,18 @@ fill_missing_data <- function(block) {
     spectraData(block)$molecule %>% 
     map_int(get.total.charge)
   # get exact mass (not present in original)
+  # spectraData(block)$exactmass2 <- map2_dbl(
+  #   spectraData(block)$formula,
+  #   spectraData(block)$molecule_charge,
+  #   ~ get.formula(.x, .y)@mass
+  # )
   spectraData(block)$exactmass2 <- map2_dbl(
     spectraData(block)$formula,
     spectraData(block)$molecule_charge,
-    ~ get.formula(.x, .y)@mass
+    ~ MetaboCoreUtils::calculateMass(.x) - 
+      .y * RMassBank:::.emass
   )
+  
   # get corrected MassBank-format MF, which is [C1H2]+ if pos charged etc.
   
   spectraData(block)$formula <-
