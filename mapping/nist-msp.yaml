@@ -17,6 +17,7 @@
   - "Collision_gas"
   - "Sample_inlet"
   - "Spectrum_type"
+  - SMILES
   - InChIKey
   
 - action: split
@@ -89,6 +90,8 @@
   - { source: '*Ionization', target: 'ionization' }
   - { source: '*InChIKey', target: 'inchikey' }
   - { source: '*Formula', target: 'formula' }
+  - { source: '*SMILES', target: 'smiles' }
+
   #- { source: 'MW', target: '' }
   - { source: '*CASNO', target: 'cas' }
   - { source: '*ID', target: 'accession' }

@@ -3,9 +3,9 @@ format:
   output: "MsFormatMsp"
 mapping:
   input: "mapping/massbank.yaml"
-  output: "mapping/nist-msp.yml"
-filename_out_schema: "spectra.msp"
+  output: "mapping/nist-msp.yaml"
 data:
   input: "input/recdata"
-  output_folder: "output"
-spectra_per_block: 1000
+  output: "output"
+filename_out_schema: "spectra.msp"
+spectra_per_block: 500
