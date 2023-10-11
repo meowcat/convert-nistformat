@@ -10,10 +10,11 @@ library(shinyFiles)
 
 modalUI <- function() {
   modalDialog(
+    textOutput("current_filename"),
     shinyFilesButton("save_file_browser", "Choose new filename", title="Save As", multiple=FALSE, buttonType="default", startRoot=c(input=".")),
     footer = tagList(
       modalButton("Cancel"),
-      actionButton("overwrite", "Overwrite")
+      actionButton("confirm_save", "Save")
     )
   )
 }
@@ -35,14 +36,35 @@ ui <- dashboardPage(
                      startRoot=c(input="."))
   ),
   dashboardBody(
-    tabBox(
+    tabsetPanel(
       tabPanel("Home",
                actionButton("start", "Start"),
                actionButton("kill", "Kill"),
                verbatimTextOutput("log")),
-      tabPanel("Settings", actionButton("save1", "Save"), aceEditor("editor1", mode = "yaml")),
-      tabPanel("Input map", actionButton("save2", "Save"), aceEditor("editor2", mode = "yaml")),
-      tabPanel("Output map", actionButton("save3", "Save"), aceEditor("editor3", mode = "yaml"))
+      tabPanel("Settings", 
+               actionButton("save_settings", "Save"),
+               shinySaveButton("saveas_settings", "Save As", 
+                               title="Save As",
+                               multiple=FALSE, 
+                               buttonType="default", 
+                               startRoot=c(input=".")),
+               aceEditor("editor1", mode = "yaml")),
+      tabPanel("Input map", 
+               actionButton("save_input", "Save"), 
+               shinySaveButton("saveas_input", "Save As", 
+                               title="Save As",
+                               multiple=FALSE, 
+                               buttonType="default", 
+                               startRoot=c(input=".")),
+               aceEditor("editor2", mode = "yaml")),
+      tabPanel("Output map", 
+               actionButton("save_output", "Save"), 
+               shinySaveButton("saveas_output", "Save As", 
+                               title="Save As",
+                               multiple=FALSE, 
+                               buttonType="default", 
+                               startRoot=c(input=".")),
+               aceEditor("editor3", mode = "yaml"))
     )
   )
 )
@@ -58,7 +80,9 @@ server <- function(input, output, session) {
   shinyFileChoose(input, 'choose_settings', roots=c(input="."), session=session)
   shinyFileChoose(input, 'choose_input', roots=c(input="."), session=session)
   shinyFileChoose(input, 'choose_output', roots=c(input="."), session=session)
-  shinyFileSave(input, "save_file_browser", roots=c(input="."), session=session)
+  shinyFileSave(input, "saveas_settings", roots=c(input="."), session=session)
+  shinyFileSave(input, "saveas_input", roots=c(input="."), session=session)
+  shinyFileSave(input, "saveas_output", roots=c(input="."), session=session)
   
   fileNames <- reactiveValues(settings = "", input = "", output = "")
   
@@ -104,21 +128,52 @@ server <- function(input, output, session) {
   })
   
   
+  observeEvent(input$save_settings, {
+    write_lines(input$editor1, fileNames$settings)
+  })
+  observeEvent(input$saveas_settings, {
+    if(is.integer(input$saveas_settings))
+      return()
+    newFile <- parseFilePaths(roots = c(input="."), input$saveas_settings)$datapath[1]
+    fileNames$settings <- newFile
+    write_lines(input$editor1, fileNames$settings)
+  })
+  
+  observeEvent(input$save_input, {
+    write_lines(input$editor2, fileNames$input)
+  })
+  observeEvent(input$saveas_input, {
+    if(is.integer(input$saveas_input))
+      return()
+    newFile <- parseFilePaths(roots = c(input="."), input$saveas_input)$datapath[1]
+    fileNames$settings <- newFile
+    write_lines(input$editor2, fileNames$input)
+  })
+  
+  observeEvent(input$save_output, {
+    write_lines(input$editor3, fileNames$output)
+  })
+  observeEvent(input$saveas_output, {
+    if(is.integer(input$saveas_output))
+      return()
+    newFile <- parseFilePaths(roots = c(input="."), input$saveas_output)$datapath[1]
+    fileNames$output <- newFile
+    write_lines(input$editor3, fileNames$output)
+  })
+  
   # Saving logic with file overwrite confirmation
   save_logic <- function(editorContent, fileName, fileSlot) {
-    if (file.exists(fileName)) {
+
+      output$current_filename <- renderText(fileNames[[fileSlot]])
       # Show modal to choose a new file
       showModal(modalUI())
       
       # Observe confirmation
       observeEvent(input$confirm_save, {
-        newFile <- parseFilePaths(roots = c(input="."), input$save_file_browser)$datapath[1]
-        writeLines(editorContent, newFile)
+        #writeLines(editorContent, newFile)
+        #output$current_filename <- renderText(newFile)
         fileNames[[fileSlot]] <- newFile
       })
-    } else {
-      writeLines(editorContent, fileName)
-    }
   }
   
   observeEvent(input$save1, {
