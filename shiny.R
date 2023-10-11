@@ -8,6 +8,8 @@ library(fs)
 library(shinydashboard)
 library(shinyFiles)
 
+source("editor_module.R")
+
 modalUI <- function() {
   modalDialog(
     textOutput("current_filename"),
@@ -41,6 +43,8 @@ ui <- dashboardPage(
                actionButton("start", "Start"),
                actionButton("kill", "Kill"),
                verbatimTextOutput("log")),
+      tabPanel("test",
+               editor_module_ui("test")),
       tabPanel("Settings", 
                actionButton("save_settings", "Save"),
                shinySaveButton("saveas_settings", "Save As", 
@@ -83,6 +87,8 @@ server <- function(input, output, session) {
   shinyFileSave(input, "saveas_settings", roots=c(input="."), session=session)
   shinyFileSave(input, "saveas_input", roots=c(input="."), session=session)
   shinyFileSave(input, "saveas_output", roots=c(input="."), session=session)
+  
+  editor_module_server("test")
   
   fileNames <- reactiveValues(settings = "", input = "", output = "")
   
