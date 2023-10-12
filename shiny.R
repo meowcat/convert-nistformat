@@ -9,6 +9,7 @@ library(shinydashboard)
 library(shinyFiles)
 
 source("editor_module.R")
+source("settings_module.R")
 
 modalUI <- function() {
   modalDialog(
@@ -31,7 +32,7 @@ ui <- dashboardPage(
                actionButton("start", "Start"),
                actionButton("kill", "Kill"),
                verbatimTextOutput("log")),
-      tabPanel("Settings", editor_module_ui("settings")),
+      tabPanel("Settings", settings_module_ui("settings")),
       tabPanel("Input map", editor_module_ui("inputmap")),
       tabPanel("Output map", editor_module_ui("outputmap")),
     )
@@ -48,9 +49,11 @@ server <- function(input, output, session) {
   #
 
   
-  file_settings <- editor_module_server("settings")
   file_inputmap <- editor_module_server("inputmap")
   file_outputmap <- editor_module_server("outputmap")
+  settings <- settings_module_server("settings",
+                                     inputmap = file_inputmap,
+                                     outputmap = file_outputmap)
   
   fileNames <- reactiveValues(settings = "", input = "", output = "")
   
@@ -63,11 +66,14 @@ server <- function(input, output, session) {
 
   observeEvent(input$start, {
     shinyjs::disable("start")
+    settings_path <- tempfile(fileext = ".yaml")
+    yaml::write_yaml(settings, settings_path)
+    
     proc <- callr::r_bg(function(settings_file_) { 
       settings_file <- settings_file_
       source("testfile.R") 
       }, 
-      args = list(settings_file_ = file_settings),
+      args = list(settings_file_ = settings_path),
       supervise = TRUE)
     process(proc)
   })
