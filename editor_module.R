@@ -87,7 +87,7 @@ editor_module_server <- function(id,
     })
     
     if(!returnContent)
-      return(reactive({fileName()}))
+      return(fileName)
     else
       return(reactive({input$editor}))
     

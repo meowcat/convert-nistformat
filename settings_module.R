@@ -30,9 +30,10 @@ settings_module_ui <- function(id) {
              )
     ),
     hr(),
+    strong("Chunking behaviour"),
     numericInput(NS(id, "spectra_per_file"), "Spectra per file", "-1"),
     numericInput(NS(id, "files_per_block"), "Files per block", "1"),
-    
+    strong("Settings"), br(),
     editor_module_ui(NS(id, "settings_yaml"))
     )
 }
@@ -111,12 +112,19 @@ settings_module_server <- function(id,
     # Respond to file loading in editor
     observeEvent(editor(), {
       settings_data <- yaml::yaml.load(editor())
+      # set formats
       updateSelectInput(session, "inputformat", selected = settings_data$format$input)
       updateSelectInput(session, "outputformat", selected = settings_data$format$output)
+      # set data dirs
       inputdir(settings_data$data$input)
       outputdir(settings_data$data$output)
+      # set chunking behaviour
       updateNumericInput(session, "spectra_per_file", value = settings_data$spectra_per_file)
       updateNumericInput(session, "files_per_block", value = settings_data$files_per_block)
+      # set mapping files, these are "shared" reactiveVal that will also trigger 
+      # the file load in the target editor
+      inputmap(settings_data$mapping$input)
+      outputmap(settings_data$mapping$output)
     })
     
     
