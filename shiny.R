@@ -11,63 +11,53 @@ library(shinyFiles)
 source("editor_module.R")
 source("settings_module.R")
 
-modalUI <- function() {
-  modalDialog(
-    textOutput("current_filename"),
-    shinyFilesButton("save_file_browser", "Choose new filename", title="Save As", multiple=FALSE, buttonType="default", startRoot=c(input=".")),
-    footer = tagList(
-      modalButton("Cancel"),
-      actionButton("confirm_save", "Save")
-    )
-  )
-}
 
 ui <- dashboardPage(
-  dashboardHeader(title = "Shiny YAML Editor"),
+  dashboardHeader(title = "SpectraMapping UI"),
   dashboardSidebar(
   ),
   dashboardBody(
-    tabsetPanel(
+    tabsetPanel(id = "tabs",
       tabPanel("Home",
                actionButton("start", "Start"),
                actionButton("kill", "Kill"),
                verbatimTextOutput("log")),
       tabPanel("Settings", settings_module_ui("settings")),
-      tabPanel("Input map", editor_module_ui("inputmap")),
-      tabPanel("Output map", editor_module_ui("outputmap")),
+      tabPanel("Input map", value = "inputmap", editor_module_ui("inputmap")),
+      tabPanel("Output map", value = "outputmap", editor_module_ui("outputmap")),
     )
   )
 )
 
 server <- function(input, output, session) {
   
-  # Define filenames as a reactiveValues object
-  # fileNames <- reactiveValues(
-  #   settings = "input/settings.yaml", 
-  #   input = "mapping/massbank.yaml", 
-  #   output = "mapping/nist-msp.yaml")
-  #
 
-  
   file_inputmap <- editor_module_server("inputmap")
   file_outputmap <- editor_module_server("outputmap")
   settings <- settings_module_server("settings",
                                      inputmap = file_inputmap,
                                      outputmap = file_outputmap)
   
-  fileNames <- reactiveValues(settings = "", input = "", output = "")
   
+  # Switch tabs on demand, required by the links in settings_module
+  tabSelect <- reactive(settings$tabSelect())
+  observeEvent(tabSelect(), {
+    message("updating")
+    req(tabSelect())
+    updateTabsetPanel(session, "tabs", selected = tabSelect())
+  })
+  
+
   # Background process holder
   process <- reactiveVal(NULL)
-  
   # Store logs from background process
   logs <- reactiveVal("")
   
-
+  # Start process on click
   observeEvent(input$start, {
     shinyjs::disable("start")
     settings_path <- tempfile(fileext = ".yaml")
-    yaml::write_yaml(settings, settings_path)
+    yaml::write_yaml(settings$settings(), settings_path)
     
     proc <- callr::r_bg(function(settings_file_) { 
       settings_file <- settings_file_
@@ -78,7 +68,9 @@ server <- function(input, output, session) {
     process(proc)
   })
   
-  # observe({
+  
+
+    # observe({
   #   if (!is.null(process())) {
   #     if (process()$is_alive()) {
   #       logs(paste(logs(), process()$read_all_lines(), collapse = "\n"))

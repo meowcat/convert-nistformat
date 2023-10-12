@@ -29,17 +29,23 @@ settings_module_ui <- function(id) {
              actionLink(NS(id, "outputmap_edit"), "edit")
              )
     ),
+    hr(),
     numericInput(NS(id, "spectra_per_file"), "Spectra per file", "-1"),
     numericInput(NS(id, "files_per_block"), "Files per block", "1"),
     aceEditor(NS(id, "editor"), mode = "yaml")
     )
 }
 
-settings_module_server <- function(id, inputmap,  outputmap) {
+settings_module_server <- function(id, 
+                                   inputmap,  outputmap, 
+                                   tab_input = "inputmap",
+                                   tab_output = "outputmap") {
   
   stopifnot(is.reactive(inputmap))
   stopifnot(is.reactive(outputmap))
-  
+  stopifnot(!is.reactive(tab_input))
+  stopifnot(!is.reactive(tab_output))
+
   moduleServer(id, function(input, output, session) {
     
     shinyDirChoose(input, "inputdir", roots=c(input="."), allowDirCreate = FALSE)
@@ -79,9 +85,24 @@ settings_module_server <- function(id, inputmap,  outputmap) {
                         value = yaml::as.yaml(settings_list()))
     })
     
+    tabSelect <- reactiveVal(NULL)
+    observeEvent(input$inputmap_edit, {
+      message(tab_input)
+      tabSelect("")
+      tabSelect(tab_input)
+    })
+    observeEvent(input$outputmap_edit, {
+      message(tab_output)
+      tabSelect("")
+      tabSelect(tab_output)
+    })
     
-    return(reactive({settings_list()}))
     
-  })
-}
+    return(list(
+      settings = reactive({ settings_list() }),
+      tabSelect = reactive({ tabSelect() })
+      ))
+    
+  }) # moduleServer
+} # settings_module_server
 
