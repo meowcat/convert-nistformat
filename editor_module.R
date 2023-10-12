@@ -63,7 +63,7 @@ editor_module_server <- function(id) {
       fileName(fileName_)
     })
     
-    
+    return(reactive({fileName()}))
     
   })
 }

@@ -18,7 +18,9 @@ source("functions.R")
 
 parallel <- FALSE
 
-settings <- yaml::read_yaml("input/settings.yml")
+if(!exists("settings_file"))
+  settings_file <- "input/settings.yaml"
+settings <- yaml::read_yaml(settings_file)
 
 mapping <- settings$mapping$input
 mapping_out <- settings$mapping$output
