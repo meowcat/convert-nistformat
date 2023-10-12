@@ -32,7 +32,8 @@ settings_module_ui <- function(id) {
     hr(),
     numericInput(NS(id, "spectra_per_file"), "Spectra per file", "-1"),
     numericInput(NS(id, "files_per_block"), "Files per block", "1"),
-    aceEditor(NS(id, "editor"), mode = "yaml")
+    
+    editor_module_ui(NS(id, "settings_yaml"))
     )
 }
 
@@ -58,6 +59,9 @@ settings_module_server <- function(id,
     output$outputdir <- renderText({outputdir()})
     output$inputmap <- renderText({inputmap()})
     output$outputmap <- renderText({outputmap()})
+    
+    inputContent <- reactiveVal("")
+    editor <- editor_module_server("settings_yaml", inputContent = inputContent)
 
     settings_list <- reactive({
       tryCatch(list(
@@ -79,10 +83,9 @@ settings_module_server <- function(id,
       error = function(e) list())
     })
     
+    # Update editor view from current settings
     observeEvent(settings_list(), {
-        updateAceEditor(session = session,
-                        "editor", 
-                        value = yaml::as.yaml(settings_list()))
+        inputContent(yaml::as.yaml(settings_list()))
     })
     
     tabSelect <- reactiveVal(NULL)

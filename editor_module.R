@@ -18,7 +18,10 @@ editor_module_ui <- function(id) {
     )
 }
 
-editor_module_server <- function(id) {
+editor_module_server <- function(id, inputContent = reactive({""})) {
+  
+  stopifnot(is.reactive(inputContent))
+  
   moduleServer(id, function(input, output, session) {
     
     fileName <- reactiveVal(NULL)
@@ -61,6 +64,14 @@ editor_module_server <- function(id) {
       content <- input$editor
       write_lines(content, fileName_)
       fileName(fileName_)
+    })
+    
+    inputContent_ <- reactive({ inputContent() })
+    
+    # Update editor when content arrives
+    observeEvent(inputContent_(), {
+      data <- inputContent_()
+      updateAceEditor(session, "editor", value = data)
     })
     
     return(reactive({fileName()}))
