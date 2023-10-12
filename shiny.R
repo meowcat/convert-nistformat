@@ -7,6 +7,22 @@ library(callr)
 library(fs)
 library(shinydashboard)
 library(shinyFiles)
+library(glue)
+library(fansi)
+
+ansi2html <- function(ansi, height = "500px"){
+  HTML(sprintf(
+    glue("<pre style='height: {height}; overflow: auto'>%s</pre>"),
+    gsub("\n", "<br/>", as.character(sgr_to_html(ansi)))
+  ))
+}
+
+fixed_height <- function(id, height) {
+  shiny::tags$head(shiny::tags$style(shiny::HTML(
+    glue("#{id} {{ height: {height}; overflow: auto; }}")
+  )))  
+}
+
 
 source("editor_module.R")
 source("settings_module.R")
@@ -17,12 +33,14 @@ ui <- dashboardPage(
   dashboardSidebar(
   ),
   dashboardBody(
+    shinyjs::useShinyjs(),
+    #fixed_height("log", "500px"),
     tabsetPanel(id = "tabs",
       tabPanel("Home",
                actionButton("start", "Start"),
                actionButton("kill", "Kill"),
                textOutput("monitor"),
-               aceEditor("log", readOnly = TRUE)
+               htmlOutput("log")
                ),
       tabPanel("Settings", settings_module_ui("settings")),
       tabPanel("Input map", value = "inputmap", editor_module_ui("inputmap")),
@@ -58,16 +76,17 @@ server <- function(input, output, session) {
   # Start process on click
   observeEvent(input$start, {
     shinyjs::disable("start")
+    logs()
     settings_path <- tempfile(fileext = ".yaml")
     yaml::write_yaml(settings$settings(), settings_path)
     
-    proc <- callr::r_bg(function(settings_file_) { 
-      settings_file <- settings_file_
+    proc <- callr::r_bg(function(settings_file) { 
+      library(rlang)
       message("abc")
       Sys.sleep(10)
-      source("testfile.R") 
+      source("testfile.R", local = env(settings_file = settings_file)) 
       }, 
-      args = list(settings_file_ = settings_path),
+      args = list(settings_file = settings_path),
       supervise = TRUE,
       stderr = "2>&1"
     )
@@ -85,7 +104,8 @@ server <- function(input, output, session) {
     req(process())
     # Append to log and update editor
     logs(stringr::str_c(logs(), process()$read_output()))
-    updateAceEditor(session, "log", value=logs())
+    #updateAceEditor(session, "log", value=logs())
+    output$log <- renderUI({ansi2html(logs())})
   })
   
   output$monitor <- renderText({ procMonitor() })
