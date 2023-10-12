@@ -25,7 +25,7 @@ settings <- yaml::read_yaml(settings_file)
 mapping <- settings$mapping$input
 mapping_out <- settings$mapping$output
 filename_out <- settings$filename_out_schema
-block_size <- settings$spectra_per_block
+block_size <- settings$files_per_block
 target_folder <- settings$data$output
 
 formats <- list(

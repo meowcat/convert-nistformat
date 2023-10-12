@@ -11,15 +11,16 @@ library(glue)
 library(fansi)
 
 ansi2html <- function(ansi, height = "500px"){
+  height_ <- str_replace(height, fixed("%"), "%%")
   HTML(sprintf(
-    glue("<pre style='height: {height}; overflow: auto'>%s</pre>"),
+    glue("<pre style='height: {height_}; overflow: auto'>%s</pre>"),
     gsub("\n", "<br/>", as.character(sgr_to_html(ansi)))
   ))
 }
 
 fixed_height <- function(id, height) {
   shiny::tags$head(shiny::tags$style(shiny::HTML(
-    glue("#{id} {{ height: {height}; overflow: auto; }}")
+    glue("#{id} {{ height: {height_}; overflow: auto; }}")
   )))  
 }
 
@@ -38,9 +39,10 @@ ui <- dashboardPage(
     tabsetPanel(id = "tabs",
       tabPanel("Home",
                actionButton("start", "Start"),
-               actionButton("kill", "Kill"),
+               shinyjs::disabled(actionButton("kill", "Kill")),
                textOutput("monitor"),
-               htmlOutput("log")
+               #htmlOutput("log")
+               aceEditor("log", "")
                ),
       tabPanel("Settings", settings_module_ui("settings")),
       tabPanel("Input map", value = "inputmap", editor_module_ui("inputmap")),
@@ -76,15 +78,16 @@ server <- function(input, output, session) {
   # Start process on click
   observeEvent(input$start, {
     shinyjs::disable("start")
-    logs()
+    shinyjs::enable("kill")
+    logs("")
     settings_path <- tempfile(fileext = ".yaml")
     yaml::write_yaml(settings$settings(), settings_path)
     
     proc <- callr::r_bg(function(settings_file) { 
       library(rlang)
-      message("abc")
+      message("Starting conversion")
       Sys.sleep(10)
-      source("testfile.R", local = env(settings_file = settings_file)) 
+      source("process.R", local = env(settings_file = settings_file)) 
       }, 
       args = list(settings_file = settings_path),
       supervise = TRUE,
@@ -95,17 +98,29 @@ server <- function(input, output, session) {
   
   procMonitor <- reactive({
     invalidateLater(1000, session)
+    shinyjs::enable("start")
+    shinyjs::disable("kill")
     req(process())
-    process()$is_alive()
+    is_alive <- process()$is_alive()
+    if(is_alive) {
+      shinyjs::disable("start")
+      shinyjs::enable("kill")
+    }
   })
+  
+  
   
   observe({
     invalidateLater(1000, session)
-    req(process())
-    # Append to log and update editor
-    logs(stringr::str_c(logs(), process()$read_output()))
-    #updateAceEditor(session, "log", value=logs())
-    output$log <- renderUI({ansi2html(logs())})
+    tryCatch({
+      # Append to log and update editor
+      logs(stringr::str_c(logs(), process()$read_output()))
+    }, error = function(e) NA)
+    logs_ <- logs()
+    updateAceEditor(session, "log", value=logs_)
+    nlines <- str_count(logs_, "\n")
+    shinyjs::runjs(glue('ace.edit("log").gotoLine({nlines})'))
+    #output$log <- renderUI({ansi2html(logs(), "800px")})
   })
   
   output$monitor <- renderText({ procMonitor() })

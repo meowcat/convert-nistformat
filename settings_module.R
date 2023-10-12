@@ -33,6 +33,8 @@ settings_module_ui <- function(id) {
     strong("Chunking behaviour"),
     numericInput(NS(id, "spectra_per_file"), "Spectra per file", "-1"),
     numericInput(NS(id, "files_per_block"), "Files per block", "1"),
+    textInput(NS(id, "filename_out_schema"), "Output filename"),
+    
     strong("Settings"), br(),
     editor_module_ui(NS(id, "settings_yaml"))
     )
@@ -66,6 +68,8 @@ settings_module_server <- function(id,
     output$inputmap <- renderText({inputmap()})
     output$outputmap <- renderText({outputmap()})
     
+    
+    
     inputContent <- reactiveVal("")
     editor <- editor_module_server(
       "settings_yaml", 
@@ -87,7 +91,8 @@ settings_module_server <- function(id,
           output = outputdir()
         ),
         spectra_per_file = input$spectra_per_file,
-        files_per_block = input$files_per_block
+        files_per_block = input$files_per_block,
+        filename_out_schema = input$filename_out_schema
       ),
       error = function(e) list())
     })
@@ -125,6 +130,8 @@ settings_module_server <- function(id,
       # the file load in the target editor
       inputmap(settings_data$mapping$input)
       outputmap(settings_data$mapping$output)
+      # set filename
+      updateTextInput(session, "filename_out_schema", value = settings_data$filename_out_schema)
     })
     
     
