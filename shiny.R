@@ -21,7 +21,9 @@ ui <- dashboardPage(
       tabPanel("Home",
                actionButton("start", "Start"),
                actionButton("kill", "Kill"),
-               verbatimTextOutput("log")),
+               textOutput("monitor"),
+               aceEditor("log", readOnly = TRUE)
+               ),
       tabPanel("Settings", settings_module_ui("settings")),
       tabPanel("Input map", value = "inputmap", editor_module_ui("inputmap")),
       tabPanel("Output map", value = "outputmap", editor_module_ui("outputmap")),
@@ -61,14 +63,32 @@ server <- function(input, output, session) {
     
     proc <- callr::r_bg(function(settings_file_) { 
       settings_file <- settings_file_
+      message("abc")
+      Sys.sleep(10)
       source("testfile.R") 
       }, 
       args = list(settings_file_ = settings_path),
-      supervise = TRUE)
+      supervise = TRUE,
+      stderr = "2>&1"
+    )
     process(proc)
   })
   
+  procMonitor <- reactive({
+    invalidateLater(1000, session)
+    req(process())
+    process()$is_alive()
+  })
   
+  observe({
+    invalidateLater(1000, session)
+    req(process())
+    # Append to log and update editor
+    logs(stringr::str_c(logs(), process()$read_output()))
+    updateAceEditor(session, "log", value=logs())
+  })
+  
+  output$monitor <- renderText({ procMonitor() })
 
     # observe({
   #   if (!is.null(process())) {
