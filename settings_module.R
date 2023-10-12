@@ -115,6 +115,8 @@ settings_module_server <- function(id,
       updateSelectInput(session, "outputformat", selected = settings_data$format$output)
       inputdir(settings_data$data$input)
       outputdir(settings_data$data$output)
+      updateNumericInput(session, "spectra_per_file", value = settings_data$spectra_per_file)
+      updateNumericInput(session, "files_per_block", value = settings_data$files_per_block)
     })
     
     
