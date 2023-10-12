@@ -52,8 +52,13 @@ settings_module_server <- function(id,
     shinyDirChoose(input, "inputdir", roots=c(input="."), allowDirCreate = FALSE)
     shinyDirChoose(input, "outputdir", roots=c(input="."), allowDirCreate = TRUE)
     
-    inputdir <- reactive({parseDirPath(roots=c(input="."), input$inputdir)})
-    outputdir <- reactive({parseDirPath(roots=c(input="."), input$outputdir)})
+    inputdir_ <- reactive({parseDirPath(roots=c(input="."), input$inputdir)})
+    inputdir <- reactiveVal()
+    observeEvent(inputdir_(), {inputdir(inputdir_())})
+    
+    outputdir_ <- reactive({parseDirPath(roots=c(input="."), input$outputdir)})
+    outputdir <- reactiveVal()
+    observeEvent(outputdir_(), {outputdir(outputdir_())})
     
     output$inputdir <- renderText({inputdir()})
     output$outputdir <- renderText({outputdir()})
@@ -61,7 +66,10 @@ settings_module_server <- function(id,
     output$outputmap <- renderText({outputmap()})
     
     inputContent <- reactiveVal("")
-    editor <- editor_module_server("settings_yaml", inputContent = inputContent)
+    editor <- editor_module_server(
+      "settings_yaml", 
+      inputContent = inputContent,
+      returnContent = TRUE)
 
     settings_list <- reactive({
       tryCatch(list(
@@ -98,6 +106,15 @@ settings_module_server <- function(id,
       message(tab_output)
       tabSelect("")
       tabSelect(tab_output)
+    })
+    
+    # Respond to file loading in editor
+    observeEvent(editor(), {
+      settings_data <- yaml::yaml.load(editor())
+      updateSelectInput(session, "inputformat", selected = settings_data$format$input)
+      updateSelectInput(session, "outputformat", selected = settings_data$format$output)
+      inputdir(settings_data$data$input)
+      outputdir(settings_data$data$output)
     })
     
     
