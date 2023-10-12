@@ -18,9 +18,14 @@ editor_module_ui <- function(id) {
     )
 }
 
-editor_module_server <- function(id, inputContent = reactive({""})) {
+editor_module_server <- function(id, 
+                                 inputContent = reactive({""}), 
+                                 inputFile = reactive({""}),
+                                 returnContent = FALSE) {
   
   stopifnot(is.reactive(inputContent))
+  stopifnot(is.reactive(inputFile))
+  stopifnot(!is.reactive(returnContent))
   
   moduleServer(id, function(input, output, session) {
     
@@ -28,6 +33,7 @@ editor_module_server <- function(id, inputContent = reactive({""})) {
     # activate shinyFile tools
     shinyFileChoose(input, "choose", roots=c(input="."), session=session)
     shinyFileSave(input, "saveas", roots=c(input="."), session=session)
+    
     # set filename on file selection
     observeEvent(input$choose, {
       fileName(
@@ -37,6 +43,12 @@ editor_module_server <- function(id, inputContent = reactive({""})) {
       )
       message(fileName())
     })
+    
+    # set filename when external filename is supplied
+    observeEvent(inputFile(), {
+      fileName(inputFile())
+    })
+    
     # show filename in ui
     output$filename <- renderText({ fileName() })
     
@@ -74,7 +86,10 @@ editor_module_server <- function(id, inputContent = reactive({""})) {
       updateAceEditor(session, "editor", value = data)
     })
     
-    return(reactive({fileName()}))
+    if(!returnContent)
+      return(reactive({fileName()}))
+    else
+      return(reactive({input$editor}))
     
   })
 }
