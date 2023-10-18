@@ -9,6 +9,7 @@ library(shinydashboard)
 library(shinyFiles)
 library(glue)
 library(fansi)
+library(stringr)
 
 ansi2html <- function(ansi, height = "500px"){
   height_ <- str_replace(height, fixed("%"), "%%")
@@ -38,8 +39,10 @@ ui <- dashboardPage(
     #fixed_height("log", "500px"),
     tabsetPanel(id = "tabs",
       tabPanel("Home",
-               actionButton("start", "Start"),
-               shinyjs::disabled(actionButton("kill", "Kill")),
+               actionButton("chunk", "Start pre-chunking"),
+               actionButton("start", "Start conversion"),
+               shinyjs::disabled(actionButton("kill", "Kill active job")),
+               actionButton("clear_cache", "Clear cache"),
                textOutput("monitor"),
                #htmlOutput("log")
                aceEditor("log", "")
@@ -61,6 +64,24 @@ server <- function(input, output, session) {
                                      outputmap = file_outputmap)
   
   
+  # Update available options from settings
+  observeEvent(settings$settings(), {
+    settings_ <- settings$settings()
+    shinyjs::toggle("chunk", condition = settings_$spectra_per_file > 0)
+  })
+  
+  # We leave "clear cache" functionality out for now, and work as follows:
+  # only chunks are cached, processing output is always fully processed.
+  # Otherwise users may be surprised that their spectra are not recalculated
+  # even though they change the settings.
+  
+  # # Clear cache button
+  # observeEvent(input$clear_cache, {
+  #   cache_folder <- settings$settings()$data$cache
+  #   if(fs::dir_exists(cache_folder))
+  #     fs::file_delete(cache_folder)
+  # })
+  
   # Switch tabs on demand, required by the links in settings_module
   tabSelect <- reactive(settings$tabSelect())
   observeEvent(tabSelect(), {
@@ -72,6 +93,7 @@ server <- function(input, output, session) {
 
   # Background process holder
   process <- reactiveVal(NULL)
+  running_job <- reactiveVal(NULL)
   # Store logs from background process
   logs <- reactiveVal("")
   
@@ -79,7 +101,9 @@ server <- function(input, output, session) {
   observeEvent(input$start, {
     shinyjs::disable("start")
     shinyjs::enable("kill")
+    running_job("start")
     logs("")
+    
     settings_path <- tempfile(fileext = ".yaml")
     yaml::write_yaml(settings$settings(), settings_path)
     
@@ -98,12 +122,12 @@ server <- function(input, output, session) {
   
   procMonitor <- reactive({
     invalidateLater(1000, session)
-    shinyjs::enable("start")
+    shinyjs::enable(running_job())
     shinyjs::disable("kill")
     req(process())
     is_alive <- process()$is_alive()
     if(is_alive) {
-      shinyjs::disable("start")
+      shinyjs::disable(running_job())
       shinyjs::enable("kill")
     }
   })

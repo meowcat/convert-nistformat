@@ -25,6 +25,7 @@ settings <- yaml::read_yaml(settings_file)
 mapping <- settings$mapping$input
 mapping_out <- settings$mapping$output
 filename_out <- settings$filename_out_schema
+cache_folder <- settings$data$cache
 block_size <- settings$files_per_block
 target_folder <- settings$data$output
 
@@ -47,10 +48,15 @@ if(parallel) {
 }
 
 
+
+if(settings$spectra_per_file > 0)
+  input_folder <- fs::path(cache_folder, "chunks")
+
+stopifnot(fs::dir_exists(input_folder))
+
 fs::dir_create(target_folder, recurse = TRUE)
 
-files_in <- fs::dir_ls("input/recdata/", glob = "*.txt")
-
+files_in <- fs::dir_ls(input_folder)
 blocks <- files_in %>% split(seq_along(files_in) %/% block_size)
 block_count <- length(blocks)
 

@@ -33,6 +33,11 @@ settings_module_ui <- function(id) {
     strong("Chunking behaviour"),
     numericInput(NS(id, "spectra_per_file"), "Spectra per file", "-1"),
     numericInput(NS(id, "files_per_block"), "Files per block", "1"),
+    strong("Cache directory"),
+    shinyDirButton(NS(id, "cachedir"),
+                   label = "Select cache dir",
+                   title = "Select cache dir"),
+    textOutput(NS(id, "cachedir")),
     textInput(NS(id, "filename_out_schema"), "Output filename"),
     
     strong("Settings"), br(),
@@ -54,6 +59,7 @@ settings_module_server <- function(id,
     
     shinyDirChoose(input, "inputdir", roots=c(input="."), allowDirCreate = FALSE)
     shinyDirChoose(input, "outputdir", roots=c(input="."), allowDirCreate = TRUE)
+    shinyDirChoose(input, "cachedir", roots=c(input="."), allowDirCreate = TRUE)
     
     inputdir_ <- reactive({parseDirPath(roots=c(input="."), input$inputdir)})
     inputdir <- reactiveVal()
@@ -63,8 +69,13 @@ settings_module_server <- function(id,
     outputdir <- reactiveVal()
     observeEvent(outputdir_(), {outputdir(outputdir_())})
     
+    cachedir_ <- reactive({parseDirPath(roots=c(input="."), input$cachedir)})
+    cachedir <- reactiveVal()
+    observeEvent(cachedir_(), {cachedir(cachedir_())})
+    
     output$inputdir <- renderText({inputdir()})
     output$outputdir <- renderText({outputdir()})
+    output$cachedir <- renderText({cachedir()})
     output$inputmap <- renderText({inputmap()})
     output$outputmap <- renderText({outputmap()})
     
@@ -88,7 +99,8 @@ settings_module_server <- function(id,
         ),
         data = list(
           input = inputdir(),
-          output = outputdir()
+          output = outputdir(),
+          cache = cachedir()
         ),
         spectra_per_file = input$spectra_per_file,
         files_per_block = input$files_per_block,
@@ -123,6 +135,8 @@ settings_module_server <- function(id,
       # set data dirs
       inputdir(settings_data$data$input)
       outputdir(settings_data$data$output)
+      cachedir(settings_data$data$cache)
+      
       # set chunking behaviour
       updateNumericInput(session, "spectra_per_file", value = settings_data$spectra_per_file)
       updateNumericInput(session, "files_per_block", value = settings_data$files_per_block)

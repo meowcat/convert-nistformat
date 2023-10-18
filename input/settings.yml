@@ -7,6 +7,7 @@ mapping:
 data:
   input: "input/recdata"
   output: "output"
+  cache: "cache"
 filename_out_schema: "spectra.msp"
 spectra_per_file: 1
 files_per_block: 500
