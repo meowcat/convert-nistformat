@@ -80,12 +80,15 @@ iwalk(
     converting_map <- converting_read %>%
       SpectraMapping:::mapVariables(mapping)
     
+    # message("Available spectra variables:")
+    # str(spectraVariables(converting_map))
+    
     message("Applying extra processing steps")
     converting_process <- process_spectra_batch(converting_map, settings$processing)
 
-    message("\nexporting in NIST format")
+    message("\nexporting")
     target_filename <- glue("[target_folder]/[filename_out]", .open = "[", .close = "]" )
-    export(converting_map,
+    export(converting_process,
            MsBackendMapping(format = formats[[settings$format$output]](
              parallel = FALSE,
              progress = TRUE,

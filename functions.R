@@ -102,9 +102,9 @@ process_spectra[["add_date"]] <- list(
   stopifnot("source" %in% names(params))
   extra_data <- NULL
   if(fs::path_ext(params$source) == "csv")
-    extra_data <- readr::read_csv(params$source)
+    extra_data <- readr::read_csv(params$source, col_types = cols(col_character()))
   if(fs::path_ext(params$source) == "tsv")
-    extra_data <- readr::read_tsv(params$source)
+    extra_data <- readr::read_tsv(params$source, col_types = cols(col_character()))
   if(is.null(extra_data))
     stop(glue::glue("add_data: {params$source} - data format not supported"))
   id_col <- colnames(extra_data)[[1]]
@@ -112,15 +112,21 @@ process_spectra[["add_date"]] <- list(
   stopifnot(id_col %in% spectraVariables(block))
   # Basically dplyr join would do the job, 
   # but we need to work with all Spectra objects and play by the rules
-  entry_match <- match(spectraData(block)$id_col, extra_data$id_col)
+  entry_match <- match(as.character(spectraData(block)[[id_col]]), extra_data[[id_col]])
   
-  if(any(is.na(entry_match)))
-    stop("add_data: Missing data for some entries")
+  str(entry_match)
+  if(any(is.na(entry_match))) {
+    log_warn(glue("add_data: Removed {sum(is.na(entry_match))} spectra with missing data"))
+    block <- block[!is.na(entry_match)]
+    entry_match <- entry_match[!is.na(entry_match)]
+  }
   
   data_cols <- colnames(extra_data)[-1]
   for(data_col in data_cols) {
-    spectraData(block)[[data_col]] <- 
-      extra_data %>% pull(data_col) %>% `[`(entry_match)
+    data_fill_ <- extra_data %>% pull(data_col)
+    spectraData(block)[[data_col]] <- data_fill_[entry_match]
+    message(glue("filled {data_col}"))
+    
   }
   block
 }
@@ -289,7 +295,7 @@ process_spectra_batch <- function(block, tasks) {
   
   block <- purrr::reduce(
     tasks,
-    function(entry) {
+    function(block, entry) {
       process_spectra[[entry$task]]$fun(block, entry$params)
     }, 
     .init = block
