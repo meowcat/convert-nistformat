@@ -1,15 +1,16 @@
-library(devtools)
-library(tidyverse)
-library(Spectra)
-library(rcdk)
-library(rinchi)
-library(furrr)
-library(SpectraMapping)
-library(progress)
-library(glue)
+suppressPackageStartupMessages(library(devtools))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(Spectra))
+suppressPackageStartupMessages(library(rcdk))
+suppressPackageStartupMessages(library(rinchi))
+suppressPackageStartupMessages(library(furrr))
+suppressPackageStartupMessages(library(SpectraMapping))
+suppressPackageStartupMessages(library(progress))
+suppressPackageStartupMessages(library(glue))
+suppressPackageStartupMessages(library(DBI))
+suppressPackageStartupMessages(library(RSQLite))
+
 plan(multisession)
-library(DBI)
-library(RSQLite)
 
 options(SpectraMapping = list(verbose=2))
 
@@ -18,9 +19,12 @@ source("functions.R")
 
 parallel <- FALSE
 
+message(getwd())
+
 if(!exists("settings_file"))
   settings_file <- "input/settings.yml"
 settings <- yaml::read_yaml(settings_file)
+str(settings)
 
 mapping <- settings$mapping$input
 mapping_out <- settings$mapping$output
@@ -48,7 +52,7 @@ if(parallel) {
 }
 
 
-
+input_folder <- settings$data$input
 if(settings$spectra_per_file > 0)
   input_folder <- fs::path(cache_folder, "chunks")
 

@@ -1,46 +1,57 @@
+library(shinyBS)
+source("processingtasks_module.R")
+source("functions.R")
 
-supported_formats <- c("MsFormatMassbank", "MsFormatMsp")
+supported_formats <- c("MassBank" = "MsFormatMassbank", "MSP" = "MsFormatMsp")
 
 settings_module_ui <- function(id) {
   tagList(
-    fluidRow(
-      column(6, 
-             strong("Input directory"),
-             shinyDirButton(NS(id, "inputdir"), 
-                            label = "Select input dir",
-                            title = "Select input dir"),
-             textOutput(NS(id, "inputdir")),
-             selectInput(NS(id, "inputformat"), label = "Input format", 
-                         choices = supported_formats),
-             strong("Input mapping"),
-             textOutput(NS(id, "inputmap")), 
-             actionLink(NS(id, "inputmap_edit"), "edit")
-             ),
-      column(6,
-             strong("Output directory"),
-             shinyDirButton(NS(id, "outputdir"),
-                            label = "Select output dir",
-                            title = "Select output dir"),
-             textOutput(NS(id, "outputdir")),
-             selectInput(NS(id, "outputformat"), label = "Output format", 
-                         choices = supported_formats),
-             strong("Output mapping"),
-             textOutput(NS(id, "outputmap")),
-             actionLink(NS(id, "outputmap_edit"), "edit")
-             )
-    ),
-    hr(),
-    strong("Chunking behaviour"),
-    numericInput(NS(id, "spectra_per_file"), "Spectra per file", "-1"),
-    numericInput(NS(id, "files_per_block"), "Files per block", "1"),
-    strong("Cache directory"),
-    shinyDirButton(NS(id, "cachedir"),
-                   label = "Select cache dir",
-                   title = "Select cache dir"),
-    textOutput(NS(id, "cachedir")),
-    textInput(NS(id, "filename_out_schema"), "Output filename"),
-    
-    strong("Settings"), br(),
+    bsCollapse(
+      bsCollapsePanel(
+        "Input & output", 
+        fluidRow(
+          column(6, 
+                 strong("Input directory"),
+                 shinyDirButton(NS(id, "inputdir"), 
+                                label = "Select input dir",
+                                title = "Select input dir"),
+                 textOutput(NS(id, "inputdir")),
+                 selectInput(NS(id, "inputformat"), label = "Input format", 
+                             choices = supported_formats),
+                 strong("Input mapping"),
+                 textOutput(NS(id, "inputmap")), 
+                 actionLink(NS(id, "inputmap_edit"), "edit")
+                 ),
+          column(6,
+                 strong("Output directory"),
+                 shinyDirButton(NS(id, "outputdir"),
+                                label = "Select output dir",
+                                title = "Select output dir"),
+                 textOutput(NS(id, "outputdir")),
+                 selectInput(NS(id, "outputformat"), label = "Output format", 
+                             choices = supported_formats),
+                 strong("Output mapping"),
+                 textOutput(NS(id, "outputmap")),
+                 actionLink(NS(id, "outputmap_edit"), "edit")
+                 )
+          ),
+        textInput(NS(id, "filename_out_schema"), "Output filename")
+      ),
+      bsCollapsePanel("Extra processing", 
+      # processingtasks_module_ui(NS(id, "processingtasks")),
+        actionButton(NS(id, "processingtasks"), label = "Extra processing tasks")
+      ),
+      bsCollapsePanel("Chunking",
+        numericInput(NS(id, "spectra_per_file"), "Spectra per file", "-1"),
+        numericInput(NS(id, "files_per_block"), "Files per block", "1"),
+        strong("Cache directory"),
+        shinyDirButton(NS(id, "cachedir"),
+                       label = "Select cache dir",
+                       title = "Select cache dir"),
+        textOutput(NS(id, "cachedir"))
+      )
+    ), # bsCollapse
+    strong("Raw settings"), br(),
     editor_module_ui(NS(id, "settings_yaml"))
     )
 }
@@ -79,6 +90,8 @@ settings_module_server <- function(id,
     output$inputmap <- renderText({inputmap()})
     output$outputmap <- renderText({outputmap()})
     
+    processingtasks <- reactiveVal(list())
+    
     
     
     inputContent <- reactiveVal("")
@@ -102,6 +115,7 @@ settings_module_server <- function(id,
           output = outputdir(),
           cache = cachedir()
         ),
+        processing = processingtasks(),
         spectra_per_file = input$spectra_per_file,
         files_per_block = input$files_per_block,
         filename_out_schema = input$filename_out_schema
@@ -144,10 +158,20 @@ settings_module_server <- function(id,
       # the file load in the target editor
       inputmap(settings_data$mapping$input)
       outputmap(settings_data$mapping$output)
+      
+      processingtasks(settings_data$processing)
       # set filename
       updateTextInput(session, "filename_out_schema", value = settings_data$filename_out_schema)
     })
     
+    processingtasks_edit <- modalDialog(processingtasks_module_ui(NS(id, "processingtasks_edit"), process_spectra))
+    processingtasks_module_server("processingtasks_edit", processingtasks, process_spectra)
+    observeEvent(input$processingtasks, {
+      showModal(processingtasks_edit)
+      processingtasks_  <- processingtasks()
+      processingtasks(NULL)
+      processingtasks(processingtasks_)
+    })
     
     return(list(
       settings = reactive({ settings_list() }),

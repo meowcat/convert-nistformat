@@ -143,7 +143,11 @@ server <- function(input, output, session) {
     logs_ <- logs()
     updateAceEditor(session, "log", value=logs_)
     nlines <- str_count(logs_, "\n")
-    shinyjs::runjs(glue('ace.edit("log").gotoLine({nlines})'))
+    req(process())
+    is_alive <- process()$is_alive()
+    if(is_alive) {
+      shinyjs::runjs(glue('ace.edit("log").gotoLine({nlines})'))
+    }
     #output$log <- renderUI({ansi2html(logs(), "800px")})
   })
   

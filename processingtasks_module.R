@@ -2,16 +2,20 @@ library(listviewer)
 library(shinyAce)
 source("functions.R")
 
-processingtasks_module_ui <- function(id) tagList(
-  selectInput(NS(id, "select_task"), label = "Task", choices = c()),
-  actionButton(NS(id, "add"), label = "add"),
-  actionButton(NS(id, "remove"), label = "remove"),
-  selectInput(NS(id, "tasks_list"), selectize = FALSE, label = "Active tasks", choices = c(), size = 5),
-  textOutput(NS(id, "task_info")),
-  aceEditor(NS(id, "task_params"), mode = "yaml"),
-  actionButton(NS(id, "update"), label = "update"),
-  
-  
+processingtasks_module_ui <- function(id, info) tagList(
+  fluidRow(
+    column(6, 
+           selectInput(NS(id, "select_task"),  label = "Task", choices = names(info)),
+           actionButton(NS(id, "add"), label = "add"),
+           actionButton(NS(id, "remove"), label = "remove"),
+           selectInput(NS(id, "tasks_list"), selectize = FALSE, label = "Active tasks", choices = c(), size = 5),
+           textOutput(NS(id, "task_info")),
+           ),
+    column(6, 
+           aceEditor(NS(id, "task_params"), mode = "yaml", height = "150px"),
+           actionButton(NS(id, "update"), label = "update"),
+           )
+  )
 )
 
 processingtasks_module_server<- function(id, tasks_data, info) {
@@ -20,7 +24,7 @@ processingtasks_module_server<- function(id, tasks_data, info) {
   stopifnot(!is.reactive(info))
   moduleServer(id, function(input, output, session) {
     
-    updateSelectInput(session, "select_task", choices = names(info))
+    # updateSelectInput(session, "select_task", choices = names(info))
     
     observeEvent(input$add, {
       tasks_data_new <- c(tasks_data(),
@@ -61,9 +65,10 @@ processingtasks_module_server<- function(id, tasks_data, info) {
     observeEvent(
       input$update, {
         tasks_data_new <- tasks_data()
-        tasks_data_new[[as.integer(input$tasks_list)]]$params <- yaml::yaml.load(
-          input$task_params
-        )
+        new_params <- yaml::yaml.load(input$task_params)
+        if(length(new_params) == 0)
+          new_params <- NULL
+        tasks_data_new[[as.integer(input$tasks_list)]]$params <- new_params
         tasks_data(tasks_data_new)
       }
     )
@@ -72,12 +77,12 @@ processingtasks_module_server<- function(id, tasks_data, info) {
     
 })}
 
-ui  <- fluidPage(
-  processingtasks_module_ui("tsk")
-)
-server <- function(input, output, session) {
-  td <- reactiveVal(list())
-  processingtasks_module_server("tsk", td, process_spectra)
-}
-shinyApp(ui, server)
+# ui  <- fluidPage(
+#   processingtasks_module_ui("tsk", process_spectra)
+# )
+# server <- function(input, output, session) {
+#   td <- reactiveVal(list())
+#   processingtasks_module_server("tsk", td, process_spectra)
+# }
+# shinyApp(ui, server)
 
