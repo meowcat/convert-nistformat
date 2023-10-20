@@ -8,6 +8,30 @@ data:
   input: "input/recdata"
   output: "output"
   cache: "cache"
+# Uncomment processing steps as needed.
+# Processing tasks may be added multiple times if needed 
+# (e.g. to "add_data" from multiple source files)
+processing:
+  # - task: remove_deuterated_spectra
+  #   params:
+  # - task: add_date
+  #   params: {date: "2023.10.18"}
+  # - task: add_data
+  #   params: {source: "extradata.csv"}
+  # - task: remove_missing_smiles
+  #   params:
+  # - task: compute_from_smiles
+  #   params: { properties: ["exactmass", "formula", "inchikey", "inchi", "verify_inchikey"] }
+  # - task: compute_splash
+  #   params:
+  # - task: remove_special_characters
+  #   params:
+  # - task: add_inchikey2d
+  #   params:
+  # - task: add_variable
+  #   params: { variable: "targetvar", glue: "{collisionEnergy}"}
+  # - task: add_variable
+  #   params: { variable: "targetvar", value: "mycomment"}
 filename_out_schema: "spectra.msp"
 spectra_per_file: 1
 files_per_block: 500

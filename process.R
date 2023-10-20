@@ -75,6 +75,9 @@ iwalk(
 
     converting_map <- converting_read %>%
       SpectraMapping:::mapVariables(mapping)
+    
+    message("Applying extra processing steps")
+    converting_process <- process_spectra_batch(converting_map, settings$processing)
 
     message("\nexporting in NIST format")
     target_filename <- glue("[target_folder]/[filename_out]", .open = "[", .close = "]" )

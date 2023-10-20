@@ -76,7 +76,11 @@ process_spectra <- list()
   block
 }
 
-process_spectra[["remove_deuterated_spectra"]] <- .ps_remove_deuterated_spectra
+process_spectra[["remove_deuterated_spectra"]] <- list(
+  fun = .ps_remove_deuterated_spectra,
+  params = list(),
+  info = ""
+)
 
 .ps_add_date <- function(block, params) {
   spec_date <- format(Sys.Date(), "%Y.%m.%d")
@@ -86,7 +90,11 @@ process_spectra[["remove_deuterated_spectra"]] <- .ps_remove_deuterated_spectra
   block
 }
 
-process_spectra[["add_date"]] <- .ps_add_date
+process_spectra[["add_date"]] <- list(
+  fun = .ps_add_date,
+  params = list(date = "2023.10.19"),
+  info = "Optional Date parameter (default: today)"
+)
 
 # Add an arbitrary number of features to a Spectra object from a CSV or TSV file,
 # where the first column is used as mapping identifier.
@@ -117,7 +125,11 @@ process_spectra[["add_date"]] <- .ps_add_date
   block
 }
 
-process_spectra[["add_data"]] <- .ps_add_data
+process_spectra[["add_data"]] <- list(
+  fun = .ps_add_data,
+  params = list(source = "data.csv"),
+  info = "source: a csv or tsv with the identifier in the first column"
+)
 
 .ps_remove_missing_smiles <- function(block, params) {
   smiles_empty <- ((spectraData(block)$smiles == "") | (is.na(spectraData(block)$smiles)))
@@ -129,8 +141,11 @@ process_spectra[["add_data"]] <- .ps_add_data
   block
 }
 
-process_spectra[["remove_missing_smiles"]] <- .ps_remove_missing_smiles
-
+process_spectra[["remove_missing_smiles"]] <- list(
+  fun = .ps_remove_missing_smiles,
+  params = NULL,
+  info = ""
+)
 
 .ps_compute_from_smiles <- function(block, params) {
   
@@ -206,7 +221,11 @@ process_spectra[["remove_missing_smiles"]] <- .ps_remove_missing_smiles
   block
 }
 
-process_spectra[["compute_from_smiles"]] <- .ps_compute_from_smiles
+process_spectra[["compute_from_smiles"]] <- list(
+  fun = .ps_compute_from_smiles,
+  params = list(properties= c("exactmass", "formula", "inchikey", "inchi", "verify_inchikey")),
+  info = ""
+)
 
 .ps_compute_splash <- function(block, params) {
   spectraData(block)$splash <- map(
@@ -217,7 +236,11 @@ process_spectra[["compute_from_smiles"]] <- .ps_compute_from_smiles
   block
 }
 
-process_spectra[["compute_splash"]] <- .ps_compute_splash
+process_spectra[["compute_splash"]] <- list(
+  fun = .ps_compute_splash,
+  params = list(),
+  info =""
+)
 
 .ps_remove_special_characters <- function(block, params) {
   # fix silly signs in name
@@ -228,7 +251,11 @@ process_spectra[["compute_splash"]] <- .ps_compute_splash
   block
 }
 
-process_spectra[["remove_special_characters"]] <- .ps_remove_characters
+process_spectra[["remove_special_characters"]] <- list(
+  fun = .ps_remove_special_characters,
+  params = list(),
+  info = ""
+)
 
 .ps_add_inchikey2d <- function(block, params) {
   
@@ -237,15 +264,33 @@ process_spectra[["remove_special_characters"]] <- .ps_remove_characters
   
   block
 }
+process_spectra[["add_inchikey2d"]] <- list(
+  fun = .ps_add_inchikey2d,
+  params = list(),
+  info = ""
+)
 
-process_spectra[["add_inchikey2d"]] <- .ps_add_inchikey2d
+.ps_add_variable <- function(block, params) {
+  if("glue" %in% names(params))
+    spectraData(block)[[params$variable]] <- 
+      glue_data(spectraData(block), params$glue)
+  else
+    spectraData(block)[[params$variable]] <- params$value
+}
 
-proces_spectra_batch <- function(block, tasks) {
+process_spectra[["add_variable"]] <- list(
+  fun = .ps_add_variable,
+  params = list(variable = "target", glue ="{superglue}", value = "value"),
+  info = "Use either a glue string (from existing data) or a constant value"
+)
+
+
+process_spectra_batch <- function(block, tasks) {
   
   block <- purrr::reduce(
     tasks,
     function(entry) {
-      process_spectra[[entry$task]](block, entry$params)
+      process_spectra[[entry$task]]$fun(block, entry$params)
     }, 
     .init = block
   )
