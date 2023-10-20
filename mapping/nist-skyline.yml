@@ -6,6 +6,7 @@
   - "Instrument_type"
   - "Collision_energy"
   - "PrecursorMZ"
+  - "RetentionTime"
   - Formula
   - SMILES
   - "MW"
@@ -102,6 +103,7 @@
   #- { source: 'MW', target: '' }
   - { source: '*CASNO', target: 'cas' }
   - { source: '*ID', target: 'accession' }
+  - { source: '*RetentionTime', target: 'retentionTime' }
 - action: default
   params:
   - { target: '*msLevel', read: 2 }
