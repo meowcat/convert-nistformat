@@ -2,7 +2,10 @@ library(shinyBS)
 source("processingtasks_module.R")
 source("functions.R")
 
-supported_formats <- c("MassBank" = "MsFormatMassbank", "MSP" = "MsFormatMsp")
+supported_formats <- c(
+  "MassBank" = "MsFormatMassbank", 
+  "MSP" = "MsFormatMsp", 
+  "MGF" = "MsFormatMgf")
 
 settings_module_ui <- function(id) {
   tagList(

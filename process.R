@@ -35,7 +35,8 @@ target_folder <- settings$data$output
 
 formats <- list(
   "MsFormatMassbank" = MsFormatMassbank,
-  "MsFormatMsp" = MsFormatMsp
+  "MsFormatMsp" = MsFormatMsp,
+  "MsFormatMgf" = MsFormatMgf
 )
 stopifnot(settings$formats$input %in% names(formats))
 stopifnot(settings$formats$output %in% names(formats))
