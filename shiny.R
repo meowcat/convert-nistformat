@@ -120,6 +120,29 @@ server <- function(input, output, session) {
     process(proc)
   })
   
+  # Start process on click
+  observeEvent(input$chunk, {
+    shinyjs::disable("chunk")
+    shinyjs::enable("kill")
+    running_job("chunk")
+    logs("")
+    
+    settings_path <- tempfile(fileext = ".yaml")
+    yaml::write_yaml(settings$settings(), settings_path)
+    
+    proc <- callr::r_bg(function(settings_file) { 
+      library(rlang)
+      message("Starting prechunking")
+      Sys.sleep(10)
+      source("prechunk.R", local = env(settings_file = settings_file)) 
+    }, 
+    args = list(settings_file = settings_path),
+    supervise = TRUE,
+    stderr = "2>&1"
+    )
+    process(proc)
+  })
+  
   procMonitor <- reactive({
     invalidateLater(1000, session)
     shinyjs::enable(running_job())
