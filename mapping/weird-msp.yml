@@ -1,0 +1,28 @@
+- action: order
+  order: 
+  - NAME
+  - msLevel
+  - RETENTIONTIME
+  - acquisitionNum
+  - centroided
+  - PRECURSORMZ
+  - precursorCharge
+  - FEATURE_ID
+  - MSLEVEL
+  - Num.peaks
+  - FILENAME
+  - SPECTYPE
+- action: mapping
+  params:
+  - { source: 'FEATURE_ID', target: 'title'}
+  - { source: 'FEATURE_ID', target: 'synonyms'}
+  - { source: 'PRECURSORMZ', target: 'precursorMz' }
+  - { source: 'MSLEVEL', target: 'msLevel'}
+  - { source: 'RETENTIONTIME', target: 'rtime'}
+  - { source: 'precursorCharge', target: 'precursorCharge'}
+
+- action: type
+  defaults: TRUE  
+
+
+
