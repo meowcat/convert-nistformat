@@ -86,7 +86,7 @@ process_spectra[["remove_deuterated_spectra"]] <- list(
   spec_date <- format(Sys.Date(), "%Y.%m.%d")
   if("date" %in% names(params))
     spec_date <- params$date
-  block$date <- spec_date
+  spectraData(block)$date <- spec_date
   block
 }
 
@@ -162,9 +162,11 @@ process_spectra[["remove_missing_smiles"]] <- list(
   
   
   # Generate molecule (needed for charge, inchi)
+  smiles <-spectraData(block)$smiles
+  if(is.list(smiles))
+    smiles <- unlist(smiles)
   spectraData(block)$molecule <- 
-    parse.smiles(spectraData(block)$smiles)
-  
+    parse.smiles(smiles)
   parse_error <- map_lgl(spectraData(block)$molecule, is.null)
   block <- block[!parse_error]
   if(sum(parse_error) > 0)
@@ -176,6 +178,15 @@ process_spectra[["remove_missing_smiles"]] <- list(
     spectraData(block)$molecule %>% 
     map_int(get.total.charge)
   
+  # get corrected MassBank-format MF, which is [C1H2]+ if pos charged etc.
+  if("formula" %in% calc_props)
+    spectraData(block)$formula <-
+      map_chr(
+        spectraData(block)$molecule,
+        \(mol) rcdk::get.mol2formula(mol)@string
+      )
+  
+
   if("exactmass" %in% calc_props)
     spectraData(block)$exactmass <- map2_dbl(
       spectraData(block)$formula,
@@ -282,6 +293,7 @@ process_spectra[["add_inchikey2d"]] <- list(
       glue_data(spectraData(block), params$glue)
   else
     spectraData(block)[[params$variable]] <- params$value
+  block
 }
 
 process_spectra[["add_variable"]] <- list(
@@ -304,3 +316,49 @@ process_spectra_batch <- function(block, tasks) {
   gc()
   return(block)
 }
+
+
+
+# Fix arbitrary data in a Spectra object using a CSV input.
+# Column 1 represents the matching 
+.ps_fix_data <- function(block, params) {
+  stopifnot("source" %in% names(params))
+  extra_data <- NULL
+  if(fs::path_ext(params$source) == "csv")
+    extra_data <- readr::read_csv(params$source, col_types = cols(col_character()))
+  if(fs::path_ext(params$source) == "tsv")
+    extra_data <- readr::read_tsv(params$source, col_types = cols(col_character()))
+  if(is.null(extra_data))
+    stop(glue::glue("add_data: {params$source} - data format not supported"))
+  id_col <- colnames(extra_data)[[1]]
+  
+  stopifnot(id_col %in% spectraVariables(block))
+  # Basically dplyr join would do the job, 
+  # but we need to work with all Spectra objects and play by the rules
+  entry_match <- match(as.character(spectraData(block)[[id_col]]), extra_data[[id_col]])
+    
+  data_cols <- colnames(extra_data)[-1]
+  for(data_col in data_cols) {
+    # keep only rows where this replacement is defined
+    extra_data_ <- extra_data |>
+      dplyr::filter(!is.na(.data[[data_col]])) |>
+      dplyr::filter(.data[[data_col]] != "")
+    
+    data_fill_ <- extra_data_ %>% pull(data_col)
+    id_fill_ <- extra_data_ %>% pull(id_col)
+    # find entries in Spectra that match the IDs in the cropped replacement table
+    entry_match <- match(as.character(spectraData(block)[[id_col]]), id_fill_)
+    entry_match_positions <- which(!is.na(entry_match))
+    entry_match_found <- entry_match[!is.na(entry_match)]
+    spectraData(block)[entry_match_positions, data_col] <- data_fill_[entry_match_found]
+    message(glue("filled {data_col}"))
+    
+  }
+  block
+}
+
+process_spectra[["fix_data"]] <- list(
+  fun = .ps_fix_data,
+  params = list(source = "data.csv"),
+  info = "source: a csv or tsv with the identifier in the first column"
+)
