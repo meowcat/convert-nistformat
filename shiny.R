@@ -10,6 +10,7 @@ library(shinyFiles)
 library(glue)
 library(fansi)
 library(stringr)
+library(readr)
 
 ansi2html <- function(ansi, height = "500px"){
   height_ <- str_replace(height, fixed("%"), "%%")
