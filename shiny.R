@@ -11,6 +11,7 @@ library(glue)
 library(fansi)
 library(stringr)
 library(readr)
+library(tidyverse)
 
 ansi2html <- function(ansi, height = "500px"){
   height_ <- str_replace(height, fixed("%"), "%%")

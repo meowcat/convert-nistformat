@@ -362,3 +362,30 @@ process_spectra[["fix_data"]] <- list(
   params = list(source = "data.csv"),
   info = "source: a csv or tsv with the identifier in the first column"
 )
+
+
+
+.ps_filter_relint <- function(block, params) {
+
+  #   relint_filter <- function(x) {
+  #     x > max(x, na.rm = TRUE) * params$relint
+  # }
+  # since this isn't working,
+  # do it ourselves: 
+  # block <- filterIntensity(block, intensity = relint_filter)
+
+  peaksData(block@backend) <- 
+    peaksData(block@backend) %>%
+    purrr::map(function(x) {
+      x[x[,2] > max(x[,2], na.rm=TRUE) * params$relint, , drop=FALSE]
+    })
+
+  block
+}
+
+
+process_spectra[["filter_relint"]] <- list(
+  fun = .ps_filter_relint,
+  params = list(relint = 0.003),
+  info = "relint: relative intensity below which to remove peaks"
+)
