@@ -1,0 +1,54 @@
+# - action: extract
+#   source: Comment
+#   target: ['parentmass_', 'exactmass', '*name', '*ionization', '*synonym', '*formula']
+#   read: 'Parent=([0-9.]+) Mz_exact=([0-9.]+) ; (.*?); (.*?); (.*?); (.*)''
+#   write: 'Parent={parentmass_} Mz_exact={exactmass} ; {name}; {ionization}; {synonym}; {formula}'
+#   convert: TRUE
+- action: order
+  order: [ MSLEVEL, RTINSECONDS, SCANS, PEPMASSINT, CHARGE, FILENAME,
+           SMILES, INCHI, INCHIAUX, SPECTRUMID, NAME, PI, PUBMED, 
+           SOURCE_INSTRUMENT ]
+- action: mapping
+  params:
+  - { source: '*MS_LEVEL', target: '*msLevel' }
+  - { source: '*RTINSECONDS', target: '*rtime' }
+  - { source: '*SCANS', target: '*scanIndex' }
+  - { source: '*PEPMASSINT', target: '*precursorIntensity' }
+  - { source: '*PRECURSOR_MZ', target: '*precursorMz' }
+  - { source: '*CHARGE', target: '*precursorCharge' }
+  - { source: '*ADDUCT', target: '*adduct' }
+  - { source: '*FILENAME', target: '*dataOrigin' }
+  - { source: '*SMILES', target: '*smiles' }
+  - { source: '*INCHI', target: '*inchi' }
+  - { source: '*INCHIAUX', target: '*inchiAux' }
+  - { source: '*INCHIKEY', target: '*inchikey' }
+  - { source: '*SPECTRUM_ID', target: 'accession_' }
+  - { source: '*NAME', target: 'title' }
+  - { source: '*PI', target: '*authors' }
+  - { source: '*PUBMED', target: '*pubmed' }
+  - { source: '*INSTRUMENT_TYPE', target: '*instrument_type_' }
+  - { source: '*COMPOUND_NAME', target: 'synonyms' }
+- action: mutate
+  params:
+  - source: 'accession_'
+    target: '*accession'
+    read: 'MSBNK-GNPS-{accession_}'
+- action: mutate
+  params: 
+  - source: ["PRINCIPAL_INVESTIGATOR", "DATA_COLLECTOR", "SUBMIT_USER"]
+    target: "*authors"
+    read: "{DATA_COLLECTOR} [dtc], {PRINCIPAL_INVESTIGATOR} [dtc], {SUBMIT_USER} [com], Huber Florian [com]"
+# fill empty names:
+- action: default
+  target: '*synonyms'
+  read: "unnamed compound"
+- action: translate
+  source: '*IONMODE'
+  target: '*polarity'
+  dictionary:
+  - {value: 1, read: ["Positive", "POSITIVE", "P", "positive"], write: "Positive"}
+  - {value: 0, read: ["Negative", "NEGATIVE", "N", "negative"], write: "Negative"}
+- action: type
+  params:
+  - { field: 'msLevel', type: 'integer' }
+

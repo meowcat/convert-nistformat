@@ -1,0 +1,272 @@
+# Note: The actions are specified in read direction. 
+# I.e. 
+# * when reading from file to Spectra, the actions run top to bottom,
+# * when writing from Spectra to file, the actions run bottom to top.
+
+# Specifies the order of fields in the MassBank file. This field is specified first because
+# in write direction it is executed last.
+
+- action: order
+  order: [ACCESSION, RECORD_TITLE, DATE, AUTHORS, LICENSE, COPYRIGHT, PUBLICATION, PROJECT, COMMENT,
+    'CH$NAME', 'CH$COMPOUND_CLASS', 'CH$FORMULA', 'CH$EXACT_MASS', 'CH$SMILES', 'CH$IUPAC', 'CH$LINK',
+    'AC$INSTRUMENT', 'AC$INSTRUMENT_TYPE', 'AC$MASS_SPECTROMETRY', 'AC$CHROMATOGRAPHY', 'AC$GENERAL',
+    'MS$FOCUSED_ION', 'MS$DATA_PROCESSING', 'PK$SPLASH', 'PK$ANNOTATION', 'PK$NUM_PEAK', 'PK$PEAK']
+    
+# Maps MassBank AC$CHROMATOGRAPHY: KEY VALUE to intermediate CHROM@KEY: VALUE, 
+# same for 
+# AC$MASS_SPECTROMETRY: KEY <-> MS@KEY
+# CH$LINK: KEY              <-> LINK@KEY
+# MS$FOCUSED_ION: KEY       <-> ION@KEY
+- action: nesting
+  params:
+  - { source: '*AC$CHROMATOGRAPHY', prefix: 'CHROM@', read: '(.*?)\s(.*)$', write: "{key} {value}" }
+  - { source: '*AC$MASS_SPECTROMETRY', prefix: 'MS@', read: '(.*?)\s(.*)$', write: "{key} {value}",
+      order: [MS_TYPE, ION_MODE, '*'] }
+  - { source: '*CH$LINK', prefix: 'LINK@', read: '(.*?)\s(.*)$', write: "{key} {value}" }
+  - { source: '*MS$FOCUSED_ION', prefix: 'ION@', read: '(.*?)\s(.*)$', write: "{key} {value}" }
+
+# Sets default values in write direction (because "source" but not "target" is specified):
+# for CH$COMPOUND_CLASS, CH$SMILES, CH$IUPAC, CH$FORMULA a default of N/A is written if there
+# is no value set at this point (again, in bottom-up direction)
+- action: default
+  params:
+    - source: '*CH$COMPOUND_CLASS'
+    - source: '*CH$SMILES'
+    - source: '*CH$IUPAC'
+    - source: '*CH$FORMULA'
+  write: 'N/A'
+  
+# Maps the intermediate variable MS@COLLISION_ENERGY
+# (derived from AC$MASS_SPECTROMETRY: COLLISION_ENERGY, see above)
+# to Spectra variable collisionEnergy and intermediate variable collisionEnergyUnit
+# specifying a regex in reading direction, and a glue template in writing direction
+
+# Same for CHROM@RETENTION_TIME (originally) AC$CHROMATOGRAPHY: RETENTION_TIME
+# <-> temp_rt, temp_rt_unit
+- action: extract
+  params:
+  - source: 'MS@COLLISION_ENERGY'
+    target: ['*collisionEnergy', collisionEnergyUnit]
+    read: '([0-9]+)\s?(.*)'
+    write: '{collisionEnergy} {collisionEnergyUnit}'
+  - source: 'CHROM@RETENTION_TIME'
+    target: ['temp_rt', 'temp_rt_unit']
+    read: '([0-9.]+)\s?(.*)'
+    write: '{temp_rt} {temp_rt_unit}'
+    convert: TRUE
+    trim: TRUE
+
+# Defines an (empty) default for the intermediate collisionEnergyUnit when
+# writing to MassBank file, because this is used in the template above
+# (or writing would fail when the variable isn't found!)
+- action: default
+  source: 'collisionEnergyUnit'
+  write: ''
+  
+# Defines how to write RECORD_TITLE in MassBank records.
+# Note that only the template for "write" is defined, but no regex for "read".
+# The reso
+
+- action: extract
+  # composing RECORD_TITLE on-the-fly while writing according to specification
+  # There is no reading, the fields are redundant
+  # To do: we want to use the first CH$NAME, use split for this
+  source: '*RECORD_TITLE'
+  target: [first_name, 'AC$INSTRUMENT_TYPE', 'MS@MS_TYPE']
+  write: '{first_name}; {`AC$INSTRUMENT_TYPE`}; {`MS@MS_TYPE`}'
+  #It consists of the values of CH$NAME; AC$INSTRUMENT_TYPE; AC$MASS_SPECTROMETRY: MS_TYPE.
+
+
+# This one is hard to understand.
+# "Crossmap" is an action that acts on multientry data, for example CH$NAME which may appear several times.
+# In read direction, "crossmap" reads all "source" fields, joins them, and splits the product into all "read_split" fields.
+# In write direction, "crossmap" reads all "target" fields, joins them, and splits the product into all "write_split" fields.
+# read_split and write_split are specified as a dict from field name to index list.
+# The index list contains either a list of integers (the positions to consume) or "*" (consume all remaining elements).
+# Therefore to read the first two elements into "firsttwo" and the rest into "rest", you would specify
+# read_split: { 'firsttwo': [1,2], 'rest': "*" }
+# There must be a better way to do this. Perhaps just separate the join and split actions as a first step.
+
+# Note: Here we are mapping CH$NAME into first_name in write direction,
+# using the first element only.
+# This is because we need exactly one name to construct the title.
+- action: crossmap
+  # Extract the first name as the main name to use for composing the RECORD_TITLE
+  source: first_name
+  target: 'CH$NAME'
+  write_split: {first_name: '1'}
+
+# Translations
+- action: translate
+  params:
+  - source: 'temp_rt_unit'
+    target: '*rtime_conversion_factor'
+    dictionary:
+    - {value: '60', read: 'min', write: 'min'}
+    - {value: '1', read: 'sec', write: 'sec'}
+  - source: 'MS@MS_TYPE'
+    target: '*msLevel'
+    dictionary:
+    - {value: "1", read: [MS, MS1], write: MS}
+    - {value: "2", read: MS2, write: MS2}
+    - {value: "3", read: MS3, write: MS3}
+  - source: 'MS@ION_MODE'
+    target: '*polarity'
+    dictionary:
+    - {value: 1, read: ['POSITIVE', 'positive'], write: 'POSITIVE'}
+    - {value: 0, read: ['NEGATIVE', 'negative'], write: 'NEGATIVE'}
+- action: type
+  field: [temp_rt, rtime_conversion_factor]
+  type: numeric
+- action: mutate
+  params:
+  - source: 'temp_rt'
+    target: '*rtime'
+    read: '{temp_rt * rtime_conversion_factor}'
+    write: '{as.numeric(rtime) / rtime_conversion_factor}'
+    required: rtime_conversion_factor
+    convert: FALSE
+- action: default
+  source: rtime_conversion_factor
+  write: 1
+  type: numeric
+# Handle the annotation table
+- action: tabular
+  source: 'PK$ANNOTATION'
+  sep: ' '
+  header: 1
+  convert: TRUE
+# Handle the comment and data processing section
+- action: tabular
+  regex: '(.*?)\s(.*)'
+  write: '{key} {value}'
+  params:
+  - source: 'COMMENT'
+    target: '*comments'
+  - source: 'MS$DATA_PROCESSING'
+    target: '*dataProcessing'
+  - source: 'CHROM@SOLVENT'
+    target: '*solvents'
+
+# Mapping of Spectra fields to MassBank fields (with * in source param) 
+# or to intermediate fields (without * in source param)
+# For example, CH$IUPAC ends up in MassBank files therefore needs a *,
+# but LINK@CAS is only an intermediate that will be further transformed to
+# CH$LINK: CAS (above) and therefore is not "persisted" with *
+- action: mapping
+  params:
+  - { source: '*ACCESSION', target: 'accession' }
+  #- { source: '*RECORD_TITLE', target: 'title' }
+  - { source: '*DATE', target: 'date' }
+  - { source: '*AUTHORS', target: 'authors' }
+  - { source: '*LICENSE', target: 'license' }
+  - { source: '*PROJECT', target: 'project' }
+  - { source: '*COPYRIGHT', target: 'copyright' }
+  - { source: '*CH$NAME', target: 'synonyms' }
+  - { source: '*CH$COMPOUND_CLASS', target: 'compoundClass' }
+  - { source: '*CH$FORMULA', target: 'formula' }
+  - { source: '*CH$EXACT_MASS', target: 'exactmass' }
+  - { source: '*CH$SMILES', target: 'smiles' }
+  - { source: '*CH$IUPAC', target: 'inchi' }
+  - { source: 'LINK@CAS', target: 'cas' }
+  - { source: 'LINK@PUBCHEM', target: 'pubchem' }
+  - { source: 'LINK@INCHIKEY', target: 'inchikey' }
+  - { source: '*AC$INSTRUMENT', target: 'instrument' }
+  - { source: '*AC$INSTRUMENT_TYPE', target: 'instrument_type' }
+  - { source: 'MS@IONIZATION', target: 'ionization'}
+  - { source: 'MS@FRAGMENTATION_MODE', target: 'fragmentation_mode' }
+  - { source: 'MS@RESOLUTION', target: 'resolution' }
+  - { source: 'CHROM@COLUMN_NAME', target: 'columnName' }
+  - { source: 'CHROM@FLOW_GRADIENT', target: 'gradient' }
+  - { source: 'CHROM@FLOW_RATE', target: 'flowRate' }
+  - { source: 'ION@PRECURSOR_M/Z', target: "precursorMz" }
+  - { source: 'ION@BASE_PEAK', target: 'basePeak' }
+  - { source: 'ION@PRECURSOR_TYPE', target: 'adduct' }
+  - { source: '*PK$SPLASH', target: 'splash' }
+  - { source: '*PK$ANNOTATION', target: 'annotations' }
+  - { source: '*PK$NUM_PEAK', target: 'peaksCount' }
+- action: type
+  defaults: TRUE
+  omit: [rtime, rtime_conversion_factor]
+- action: type
+  params:
+  - { field: 'accession', type: 'character' }
+  - { field: 'title', type: 'character' }
+  - { field: 'date', type: 'character' }
+  - { field: 'authors', type: 'character' }
+  - { field: 'license', type: 'character' }
+  - { field: 'copyright', type: 'character' }
+  - { field: 'compoundClass', type: 'character' }
+  - { field: 'formula', type: 'character' }
+  - { field: 'exactmass', type: 'numeric' }
+  - { field: 'project', type: 'character' }
+  # - { field: 'smiles', type: 'character' }
+  # - { field: 'inchi', type: 'character' }
+  - { field: 'cas', type: 'character' }
+  - { field: 'pubchem', type: 'character' }
+  - { field: 'inchikey', type: 'character' }
+  - { field: 'instrument', type: 'character' }
+  - { field: 'instrument_type', type: 'character' }
+  - { field: 'fragmentation_mode', type: 'character' }
+  - { field: 'resolution', type: 'character' }
+  - { field: 'columnName', type: 'character' }
+  - { field: 'gradient', type: 'character' }
+  - { field: 'flowRate', type: 'character' }
+  - { field: 'basePeak', type: 'numeric' }
+  - { field: 'ionization', type: 'character' }
+  - { field: 'splash', type: 'character' }
+  - { field: 'adduct', type: 'character' }
+  - { field: 'collisionEnergyUnit', type: 'character' }
+  - { field: 'msLevel', type: 'integer' }
+
+  # - { field: 'rtime', type: 'numeric' }
+  # - { field: 'scanIndex', type: 'integer' }
+  # - { field: 'precursorMz', type: 'numeric' }
+  # - { field: 'precursorCharge', type: 'integer' }
+ 
+  # # - { field: 'polarity', type: 'integer' } No need to convert, done by dictionary
+  # - { field: 'collisionEnergy', type: 'numeric' }
+  # - { field: 'dataOrigin', type: 'character' }
+
+  
+#   -
+#   spectraKey: rtime
+#   dataType: numeric
+#   #ontologyKey: ["MS:1000894", "MSIO_0000190"]
+# -
+#   spectraKey: scanIndex
+#   dataType: integer
+# -
+#   spectraKey: precursorMz
+#   dataType: numeric
+# -
+#   spectraKey: precursorCharge
+#   dataType: integer
+# -
+#   spectraKey: msLevel
+#   dataType: integer
+#   ontologyKey: ["MS:1000511"]
+# -
+#   spectraKey: polarity
+#   dataType: integer
+# -
+#   spectraKey: collisionEnergy
+#   dataType: numeric
+# -
+#   spectraKey: dataOrigin
+#   dataType: character
+  
+  
+  
+
+#colnames(d)
+# [1] "msLevel"                 "rtime"                   "acquisitionNum"          "scanIndex"               "dataStorage"            
+# [6] "dataOrigin"              "centroided"              "smoothed"                "polarity"                "precScanNum"            
+#[11] "precursorMz"             "precursorIntensity"      "precursorCharge"         "collisionEnergy"         "isolationWindowLowerMz" 
+#[16] "isolationWindowTargetMz" "isolationWindowUpperMz"  "spectrum_id"             "spectrum_name"           "date"                   
+#[21] "authors"                 "license"                 "copyright"               "publication"             "splash"                 
+#[26] "compound_id"             "adduct"                  "ionization"              "ionization_voltage"      "fragmentation_mode"     
+#[31] "collision_energy_text"   "instrument"              "instrument_type"         "formula"                 "exactmass"              
+#[36] "smiles"                  "inchi"                   "inchikey"                "cas"                     "pubchem"                
+#[41] "synonym"                 "precursor_mz_text"       "compound_name"          
+
