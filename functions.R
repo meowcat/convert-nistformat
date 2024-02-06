@@ -264,7 +264,15 @@ process_spectra[["compute_splash"]] <- list(
   spectraData(block)$synonyms <- 
     spectraData(block)$synonyms %>% map(~ str_remove_all(.x, fixed("~")))
   spectraData(block)$synonyms <- 
+    spectraData(block)$synonyms %>% map(~ str_remove_all(.x, fixed('"')))
+  spectraData(block)$synonyms <- 
     spectraData(block)$synonyms %>% map(~ str_replace_all(.x, fixed("="), fixed("-")))
+  spectraData(block)$synonyms <- 
+    spectraData(block)$synonyms %>% map(~ str_replace_all(.x, fixed(";"), fixed(" or ")))
+  spectraData(block)$synonyms <- 
+    spectraData(block)$synonyms %>% map(~ str_replace_all(.x, fixed("&"), fixed(" and ")))
+  spectraData(block)$synonyms <- 
+    spectraData(block)$synonyms %>% map(~ str_replace_all(.x, "[^A-Za-z0-9-+, ()\\[\\]{}/.:$^'`_*?<>#|;]]", fixed("-")))
   block
 }
 
@@ -388,4 +396,24 @@ process_spectra[["filter_relint"]] <- list(
   fun = .ps_filter_relint,
   params = list(relint = 0.003),
   info = "relint: relative intensity below which to remove peaks"
+)
+
+
+.ps_remove_duplicate_peaks <- function(block, params) {
+
+  .remove_duplicate_peaks <- function(x) {
+    delta_x <- x[,1] - dplyr::lag(x[,1], default = -1)
+    x[delta_x > params$delta, , drop=FALSE]
+
+  }
+  peaksData(block@backend) <- 
+    peaksData(block@backend) %>% purrr::map(.remove_duplicate_peaks)
+
+  block
+}
+
+process_spectra[["remove_duplicate_peaks"]] <- list(
+  fun = .ps_remove_duplicate_peaks,
+  params = list(delta = 0.0001),
+  info = "Remove duplicate peaks, using a delta of params$delta"
 )
