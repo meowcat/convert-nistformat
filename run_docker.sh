@@ -17,6 +17,7 @@ case $1 in
         -e PASSWORD=$RSTUDIO_PASS \
         -e USERID=$UID \
         -v $PWD:/data \
+        -v ./rsession.conf:/etc/rstudio/rsession.conf \
         --name $DOCKER_NAME \
         -p $RSTUDIO_PORT:8787 \
         --mount type=tmpfs,destination=/work \
