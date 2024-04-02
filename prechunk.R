@@ -47,6 +47,19 @@ if(fs::dir_exists(chunks_folder))
 fs::dir_create(chunks_folder, recurse = TRUE)
 files_in <- fs::dir_ls(input_folder) %>% set_names(NULL)
 
+# If chunking and unzip is used, unzip needs to be done before chunking
+if(settings$data$input_unzip) {
+  unzip_folder <- fs::path(cache_folder, "unzip")
+  fs::dir_create(unzip_folder)
+  fs::dir_delete(unzip_folder)
+  fs::dir_create(unzip_folder)
+  walk(files_in, function(f) {
+    zip::unzip(f, overwrite = TRUE, exdir = unzip_folder)
+  })
+  input_folder <- unzip_folder
+  files_in <- fs::dir_ls(input_folder) %>% set_names(NULL)
+}
+
 iwalk(files_in, function(file_in, i) {
   message(glue("Splitting file {i}..."))
   preSplit(

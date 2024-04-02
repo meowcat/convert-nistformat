@@ -23,7 +23,8 @@ settings_module_ui <- function(id) {
                              choices = supported_formats),
                  strong("Input mapping"),
                  textOutput(NS(id, "inputmap")), 
-                 actionLink(NS(id, "inputmap_edit"), "edit")
+                 actionLink(NS(id, "inputmap_edit"), "edit"),
+                 checkboxInput(NS(id, "input_unzip"), "Unzip input")
                  ),
           column(6,
                  strong("Output directory"),
@@ -35,10 +36,12 @@ settings_module_ui <- function(id) {
                              choices = supported_formats),
                  strong("Output mapping"),
                  textOutput(NS(id, "outputmap")),
-                 actionLink(NS(id, "outputmap_edit"), "edit")
+                 actionLink(NS(id, "outputmap_edit"), "edit"),
+                 checkboxInput(NS(id, "output_wipe"), "Wipe old output"),
+                 checkboxInput(NS(id, "output_zip"), "Zip output")
                  )
           ),
-        textInput(NS(id, "filename_out_schema"), "Output filename")
+        textInput(NS(id, "filename_out_schema"), "Output filename {schema}")
       ),
       bsCollapsePanel("Extra processing", 
       # processingtasks_module_ui(NS(id, "processingtasks")),
@@ -93,6 +96,7 @@ settings_module_server <- function(id,
     output$inputmap <- renderText({inputmap()})
     output$outputmap <- renderText({outputmap()})
     
+    
     processingtasks <- reactiveVal(list())
     
     
@@ -116,7 +120,10 @@ settings_module_server <- function(id,
         data = list(
           input = inputdir(),
           output = outputdir(),
-          cache = cachedir()
+          cache = cachedir(),
+          input_unzip = input$input_unzip,
+          output_zip = input$output_zip,
+          output_wipe = input$output_wipe
         ),
         processing = processingtasks(),
         spectra_per_file = input$spectra_per_file,
@@ -153,6 +160,10 @@ settings_module_server <- function(id,
       inputdir(settings_data$data$input)
       outputdir(settings_data$data$output)
       cachedir(settings_data$data$cache)
+      
+      updateCheckboxInput(session, "input_unzip", value = settings_data$data$input_unzip)
+      updateCheckboxInput(session, "output_zip", value = settings_data$data$output_zip)
+      updateCheckboxInput(session, "output_wipe", value = settings_data$data$output_wipe)
       
       # set chunking behaviour
       updateNumericInput(session, "spectra_per_file", value = settings_data$spectra_per_file)

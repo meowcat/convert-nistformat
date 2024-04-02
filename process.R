@@ -43,6 +43,11 @@ stopifnot(settings$formats$output %in% names(formats))
 stopifnot(fs::file_exists(settings$mapping$input))
 stopifnot(fs::file_exists(settings$mapping$output))
 
+
+
+
+  
+
 if(parallel) {
   do_walk <- function(...) future_walk(..., .progress = TRUE)
   do_map <-  function(...) future_map(..., .progress = TRUE)
@@ -54,12 +59,46 @@ if(parallel) {
 
 
 input_folder <- settings$data$input
+
+# If chunking and unzip is used, unzip was already done before chunking
+if(settings$data$input_unzip && !(settings$data$spectra_per_file > 0)) {
+  files_in <- fs::dir_ls(input_folder)
+  unzip_folder <- fs::path(cache_folder, "unzip")
+  fs::dir_create(unzip_folder)
+  fs::dir_delete(unzip_folder)
+  fs::dir_create(unzip_folder)
+  walk(files_in, function(f) {
+    zip::unzip(f, overwrite = TRUE, exdir = unzip_folder)
+  })
+  input_folder <- unzip_folder
+}
+
 if(settings$spectra_per_file > 0)
-  input_folder <- fs::path(cache_folder, "chunks")
+  input_folder <- # If chunking and unzip is used, unzip was already done before chunking
+if(settings$data$input_unzip && !(settings$data$spectra_per_file > 0)) {
+  files_in <- fs::dir_ls(input_folder)
+  unzip_folder <- fs::path(cache_folder, "unzip")
+  fs::dir_create(unzip_folder)
+  fs::dir_delete(unzip_folder)
+  fs::dir_create(unzip_folder)
+  walk(files_in, function(f) {
+    zip::unzip(f, overwrite = TRUE, exdir = unzip_folder)
+  })
+  input_folder <- unzip_folder
+}
 
 stopifnot(fs::dir_exists(input_folder))
 
+
+if(settings$data$output_zip) {
+  target_folder <- fs::path(cache_folder, "zip")
+}
+
 fs::dir_create(target_folder, recurse = TRUE)
+if(settings$data$output_wipe) {
+  fs::dir_delete(target_folder)
+  fs::dir_create(target_folder)
+}
 
 files_in <- fs::dir_ls(input_folder)
 blocks <- files_in %>% split(seq_along(files_in) %/% block_size)
@@ -103,6 +142,23 @@ iwalk(
     message(glue("Block {i} completed")) 
 })
 
+
+# If chunking and unzip is used, unzip was already done before chunking
+if(settings$data$output_zip) {
+  zip_folder <- settings$data$output
+  fs::dir_create(zip_folder)
+  # fs::dir_delete(zip_folder)
+  # fs::dir_create(zip_folder)
+  timestamp <- as.integer(as.POSIXct(Sys.time()))
+  zip_path <- path(zip_folder, glue::glue("records-{timestamp}.zip"))
+  zip::zip(
+    zip_path,
+    target_folder,
+    fs::path_abs(
+      fs::path(target_folder, "..")
+    )
+  )
+}
 
 # merge the files
 
