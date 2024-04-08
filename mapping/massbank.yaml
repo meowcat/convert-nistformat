@@ -110,6 +110,9 @@
     - {value: 1, read: [MS, MS1], write: MS}
     - {value: 2, read: MS2, write: MS2}
     - {value: 3, read: MS3, write: MS3}
+    - {value: 4, read: MS4, write: MS4}
+    - {value: 5, read: MS5, write: MS5}
+    - {value: 0, read: MSn, write: MSn}
   - source: 'MS@ION_MODE'
     target: '*polarity'
     dictionary:

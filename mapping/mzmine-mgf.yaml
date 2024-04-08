@@ -1,0 +1,209 @@
+# - action: extract
+#   source: Comment
+#   target: ['parentmass_', 'exactmass', '*name', '*ionization', '*synonym', '*formula']
+#   read: 'Parent=([0-9.]+) Mz_exact=([0-9.]+) ; (.*?); (.*?); (.*?); (.*)''
+#   write: 'Parent={parentmass_} Mz_exact={exactmass} ; {name}; {ionization}; {synonym}; {formula}'
+#   convert: TRUE
+- action: order
+  order: [ NAME, DESCRIPTION, EXACTMASS,
+            FORMULA, INCHI, INCHIAUX, SMILES, FEATURE_ID, MSLEVEL, RTINSECONDS,
+            ADDUCT, PEPMASS, CHARGE, SPECTYPE, "Collision energy", FRAGMENTATION_METHOD,
+            ISOLATION_WINDOW, Acquisition,
+            MSn_collision_energies, MSn_precursor_mzs, MSn_fragmentation_methods,
+            MSn_isolation_windows, 
+            INSTRUMENT_TYPE, SOURCE_INSTRUMENT,
+            IMS_TYPE, ION_SOURCE, IONMODE, PI, DATACOLLECTOR, DATASET_ID,
+            USI, SCANS, PRECURSOR_PURITY, QUALITY_CHIMERIC, QUALITY_EXPLAINED_INTENSITY,
+            QUALITY_EXPLAINED_SIGNALS,
+            OTHER_MATCHED_COMPOUNDS, OTHER_MATCHED_COMPOUNDS_NAMES
+      ]
+- action: mapping
+  params:
+  - { source: "*NAME", target: "*synonyms" }
+  #- { source: "*DESCRIPTION", target: "*" }
+  - { source: "*EXACTMASS", target: "*exactmass" }
+  - { source: "*FORMULA", target: "*formula" }
+  - { source: "*INCHI", target: "*inchi" }
+  - { source: "*INCHIAUX", target: "*inchikey" }
+  - { source: "*SMILES", target: "*smiles" }
+  # - { source: "*FEATURE_ID", target: "*" }
+  - { source: "*MSLEVEL", target: "msLevel_" }
+  - { source: "*RTINSECONDS", target: "*rtime" }
+  - { source: "*ADDUCT", target: "*adduct" }
+  # - { source: "*PEPMASS", target: "*" }
+  # - { source: "*CHARGE", target: "*" }
+  # - { source: "*SPECTYPE", target: "*" }
+  - { source: "*CE", target: "collisionEnergy_" }
+  - { source: "*FRAGMENTATION_METHOD", target: "fragmentation_mode_" }
+  # - { source: "*ISOLATION_WINDOW", target: "*" }
+  # - { source: "*Acquisition", target: "*" }
+  # - { source: "*MSn_collision_energies", target: "*" }
+  # - { source: "*MSn_precursor_mzs", target: "*" }
+  # - { source: "*MSn_fragmentation_methods", target: "*" }
+  # - { source: "*MSn_isolation_windows", target: "*" }
+  # - { source: "*INSTRUMENT_TYPE", target: "*" }
+  - { source: "*SOURCE_INSTRUMENT", target: "*instrument" }
+  # - { source: "*IMS_TYPE", target: "*" }
+  # - { source: "*ION_SOURCE", target: "*" }
+  # - { source: "*IONMODE", target: "*" }
+  # - { source: "*PI", target: "*" }
+  # - { source: "*DATACOLLECTOR", target: "*" }
+  # - { source: "*DATASET_ID", target: "*" }
+  # - { source: "*USI", target: "*" }
+  # - { source: "*SCANS", target: "*" }
+  # - { source: "*PRECURSOR_PURITY", target: "*" }
+  # - { source: "*QUALITY_CHIMERIC", target: "*" }
+  # - { source: "*QUALITY_EXPLAINED_INTENSITY", target: "*" }
+  # - { source: "*QUALITY_EXPLAINED_SIGNALS", target: "*" }
+  # - { source: "*OTHER_MATCHED_COMPOUNDS", target: "*" }
+  # - { source: "*OTHER_MATCHED_COMPOUNDS_NAMES", target: "*" }
+  
+# Handle the vector type fields
+  
+# The pattern below merges collisionEnergy_ (with a scalar value)
+# and collisionEnergies (with a list field) to one final field collisionEnergy.
+# It is slash-separated since we only need it for writing to text in the end.
+- action: extract
+  params:
+  - source: "MSn_collision_energies"
+    target: "collisionEnergies_"
+    read: "\\[(.*)\\]"
+    write: "[ {collisionEnergies_} ]"
+- action: split
+  params:
+  - source: "collisionEnergies_"
+    target: "collisionEnergies"
+    read: ',\s'
+    trim: TRUE
+- action: default
+  params:
+  - target: "collisionEnergy_"
+    read: ""
+  - target: "collisionEnergies"
+    read: ""
+- action: mutate
+  params:
+  - source:  ["collisionEnergy_", "collisionEnergies" ]
+    target: "*collisionEnergy"
+    read: "{collisionEnergy_}{map_chr(collisionEnergies, ~ paste(., collapse='/'))}"
+
+- action: mutate
+  params:
+  - source:  ["msLevel_", "SPECTYPE" ]
+    target: "*msLevel"
+    read: "{ifelse(SPECTYPE=='ALL_MSN_TO_PSEUDO_MS2', 0, msLevel_)}"
+
+- action: default
+  params:
+  - target: "SPECTYPE"
+    read: "SINGLE_SPEC"
+
+- action: mutate
+  params:
+  - source:  [ "SPECTYPE" ]
+    target: "dataProcessing_"
+    read: "SPECTYPE {SPECTYPE}"
+
+- action: tabular
+  source: dataProcessing_
+  target: '*dataProcessing'
+  regex: "([A-Z_-]*)\\s?(.*)"
+  write: "{key} {value}"
+  
+    
+# Similar pattern for MSn_precursor_mzs and PEPMASS,
+# but PEPMASS is always present, so remove first MSn_precursor_mzs
+- action: extract
+  params:
+  - source: "MSn_precursor_mzs"
+    target: "precursorMzs_"
+    read: "\\[(.*)\\]"
+    write: "[ {precursorMzs_} ]"
+- action: split
+  params:
+  - source: "precursorMzs_"
+    target: "precursorMzs"
+    read: ',\s'
+    trim: TRUE
+- action: default
+  params:
+  - target: "precursorMzs"
+    read: ""
+- action: mutate
+  params:
+  - source:  ["precursorMzs", "PEPMASS" ]
+    target: "*precursorMz"
+    read: "{map2_chr(precursorMzs, PEPMASS, \\(pr, pm) paste(c(pm, round(as.numeric(pr[-1]), 5)), collapse='/'))}"
+- action: translate
+  params:
+  - source: '*INSTRUMENT_TYPE'
+    target: '*instrument_type'
+    dictionary:
+    - {value: 'Orbitrap', read: 'LC-ESI-ITFT', write: 'LC-ESI-ITFT'}
+    
+    
+# Similar pattern for MSn_fragmentation_methods:
+# Make sure there is only one, since this isn't regulated :)
+- action: extract
+  params:
+  - source: "MSn_fragmentation_methods"
+    target: "fragmentation_modes_"
+    read: "\\[(.*)\\]"
+    write: "[ {precursorMzs_} ]"
+- action: split
+  params:
+  - source: "fragmentation_modes_"
+    target: "fragmentation_modes"
+    read: ',\s'
+    trim: TRUE
+- action: mutate
+  params:
+  - source:  ["fragmentation_mode_", "fragmentation_modes" ]
+    target: "*fragmentation_mode"
+    read: "{map2_chr(fragmentation_mode_, fragmentation_modes, \\(fm, fms) c(fm[1], fms[1])[1])}"
+- action: mutate
+  params:
+  - source:  ["DATACOLLECTOR", "PI" ]
+    target: "*authors"
+    read: "{DATACOLLECTOR} [dtc], {PI} [dtc]"
+- action: translate
+  params:
+  - source: '*INSTRUMENT_TYPE'
+    target: '*instrument_type'
+    dictionary:
+    - {value: 'LC-ESI-ITFT', read: 'Orbitrap', write: 'Orbitrap'}
+    
+- action: translate
+  params:
+  - source: '*INSTRUMENT_TYPE'
+    target: '*instrument_type'
+    dictionary:
+    - {value: 'LC-ESI-ITFT', read: 'Orbitrap', write: 'Orbitrap'}
+    
+- action: translate
+  source: '*IONMODE'
+  target: '*polarity'
+  dictionary:
+  - {value: 1, read: ["Positive", "POSITIVE", "P"], write: "Positive"}
+  - {value: 0, read: ["Negative", "NEGATIVE", "N"], write: "Negative"}
+
+- action: mutate
+  params: 
+  - source: [NAME]
+    target: "id"
+    read: "{seq_along(NAME)}"
+- action: mutate
+  params:
+  - source:  inchikey
+    target: "*accession"
+    read: "MSBNK-Corina-{id}"  
+
+- action: type
+  defaults: True
+  omit: [ "precursorMz", "collisionEnergy" ]
+- action: type
+  params:
+  - { field: "formula", type: "character" }
+  - { field: "inchikey", type: "character" }
+  - { field: "msLevel", type: "integer" }
+  - { field: "adduct", type: "character" }

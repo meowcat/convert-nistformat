@@ -73,9 +73,10 @@ if(settings$data$input_unzip && !(settings$data$spectra_per_file > 0)) {
   input_folder <- unzip_folder
 }
 
-if(settings$spectra_per_file > 0)
-  input_folder <- # If chunking and unzip is used, unzip was already done before chunking
-if(settings$data$input_unzip && !(settings$data$spectra_per_file > 0)) {
+# if(settings$spectra_per_file > 0)
+#   input_folder <- cache_folder
+#   # If chunking and unzip is used, unzip was already done before chunking
+if(settings$data$input_unzip && !(settings$spectra_per_file > 0)) {
   files_in <- fs::dir_ls(input_folder)
   unzip_folder <- fs::path(cache_folder, "unzip")
   fs::dir_create(unzip_folder)
@@ -85,6 +86,8 @@ if(settings$data$input_unzip && !(settings$data$spectra_per_file > 0)) {
     zip::unzip(f, overwrite = TRUE, exdir = unzip_folder)
   })
   input_folder <- unzip_folder
+} else if (settings$spectra_per_file > 0) {
+  input_folder <- fs::path(cache_folder, "chunks")
 }
 
 stopifnot(fs::dir_exists(input_folder))
