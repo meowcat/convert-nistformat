@@ -73,8 +73,15 @@
   # To do: we want to use the first CH$NAME, use split for this
   source: '*RECORD_TITLE'
   target: [first_name, 'AC$INSTRUMENT_TYPE', 'MS@MS_TYPE']
-  write: '{first_name}; {`AC$INSTRUMENT_TYPE`}; {`MS@MS_TYPE`}'
+  write: '{first_name}; {`AC$INSTRUMENT_TYPE`}; {`MS@MS_TYPE`}; {dplyr::coalesce(unlist(collisionEnergy), "merged")}; {`ION@PRECURSOR_TYPE`}{precursor_type_msn}'
   #It consists of the values of CH$NAME; AC$INSTRUMENT_TYPE; AC$MASS_SPECTROMETRY: MS_TYPE.
+
+
+# Make a nice title for MSn spectra:
+# add the part after first slash (including the slash) to the precursor type if available
+- action: mutate
+  source: "precursor_type_msn"
+  write: "{stringr::str_remove(`ION@PRECURSOR_M/Z`, '[^/]*')}"
 
 
 # This one is hard to understand.
@@ -146,7 +153,7 @@
   params:
   - source: 'COMMENT'
     target: '*comments'
-  - source: 'MS$DATA_PROCESSING'
+  - source: '*MS$DATA_PROCESSING'
     target: '*dataProcessing'
   - source: 'CHROM@SOLVENT'
     target: '*solvents'

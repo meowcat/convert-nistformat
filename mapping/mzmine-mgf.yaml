@@ -19,7 +19,7 @@
       ]
 - action: mapping
   params:
-  - { source: "*NAME", target: "*synonyms" }
+  # - { source: "*NAME", target: "*synonyms" }
   #- { source: "*DESCRIPTION", target: "*" }
   - { source: "*EXACTMASS", target: "*exactmass" }
   - { source: "*FORMULA", target: "*formula" }
@@ -42,7 +42,7 @@
   # - { source: "*MSn_fragmentation_methods", target: "*" }
   # - { source: "*MSn_isolation_windows", target: "*" }
   # - { source: "*INSTRUMENT_TYPE", target: "*" }
-  - { source: "*SOURCE_INSTRUMENT", target: "*instrument" }
+  # - { source: "*SOURCE_INSTRUMENT", target: "*instrument" }
   # - { source: "*IMS_TYPE", target: "*" }
   # - { source: "*ION_SOURCE", target: "*" }
   # - { source: "*IONMODE", target: "*" }
@@ -58,6 +58,12 @@
   # - { source: "*OTHER_MATCHED_COMPOUNDS", target: "*" }
   # - { source: "*OTHER_MATCHED_COMPOUNDS_NAMES", target: "*" }
   
+  
+- action: split
+  source: '*NAME'
+  target: '*synonyms'
+  read: '!'
+  write: '!'
 # Handle the vector type fields
   
 # The pattern below merges collisionEnergy_ (with a scalar value)
@@ -81,11 +87,26 @@
     read: ""
   - target: "collisionEnergies"
     read: ""
+
 - action: mutate
   params:
   - source:  ["collisionEnergy_", "collisionEnergies" ]
-    target: "*collisionEnergy"
+    target: "collisionEnergy__"
     read: "{collisionEnergy_}{map_chr(collisionEnergies, ~ paste(., collapse='/'))}"
+
+# When the spectrum is a ALL_ENERGIES spectrum, replace the last collision energy by *
+- action: mutate
+  source: "collisionEnergy__"
+  target: "*collisionEnergy___"
+  read: "{ifelse(SPECTYPE=='ALL_ENERGIES', str_replace(`collisionEnergy__`, '(^|/)[0-9.]+$', '\\\\1*'), `collisionEnergy__`)}"
+
+# When the spectrum is a ALL_MSN_TO_PSEUDO_MS2 spectrum, drop the collision energy
+- action: mutate
+  source: "collisionEnergy___"
+  target: "*collisionEnergy"
+  read: "{ifelse(SPECTYPE=='ALL_MSN_TO_PSEUDO_MS2', NA_character_, `collisionEnergy___`)}"
+
+
 
 - action: mutate
   params:
@@ -102,7 +123,7 @@
   params:
   - source:  [ "SPECTYPE" ]
     target: "dataProcessing_"
-    read: "SPECTYPE {SPECTYPE}"
+    read: "COMMENT {SPECTYPE}"
 
 - action: tabular
   source: dataProcessing_
@@ -140,6 +161,10 @@
     target: '*instrument_type'
     dictionary:
     - {value: 'Orbitrap', read: 'LC-ESI-ITFT', write: 'LC-ESI-ITFT'}
+  - source: 'SOURCE_INSTRUMENT'
+    target: '*instrument'
+    dictionary:
+    - {value: 'Orbitrap ID-X Thermo Scientific', read: 'Orbitrap ID-X', write: 'Orbitrap ID-X'}
     
     
 # Similar pattern for MSn_fragmentation_methods:
