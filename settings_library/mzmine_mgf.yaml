@@ -1,0 +1,45 @@
+format:
+  input: MsFormatMgf
+  output: MsFormatMassbank
+mapping:
+  input: ./mapping/mzmine-mgf.yaml
+  output: ./mapping/massbank.yaml
+data:
+  input: ./input/corinna
+  output: ./corinna_out
+  cache: ./cache
+  input_unzip: no
+  output_zip: no
+  output_wipe: no
+processing:
+# - task: fix_data
+#   params:
+#     source: input/instrument_type.csv
+# - task: compute_from_smiles
+#   params:
+#     properties:
+#     - exactmass
+#     - formula
+#     - inchi
+#     - inchikey
+- task: add_date
+  params:
+    date: 2024.04.05
+- task: add_variable
+  params:
+    variable: license
+    value: CC BY
+# - task: filter_relint
+#   params:
+#     relint: 0.003
+# - task: remove_special_characters
+#   params: []
+# - task: remove_duplicate_peaks
+#   params:
+#     delta: 0.0001
+- task: compute_splash
+  params: []
+spectra_per_file: 1000
+files_per_block: 1
+filename_out_schema: '{ACCESSION}.txt'
+

@@ -1,0 +1,21 @@
+format:
+  input: MsFormatMassbank
+  output: MsFormatMsp
+mapping:
+  input: ./settings_library/eawag_massbank_to_skyline/massbank-com.yaml
+  output: ./settings_library/eawag_massbank_to_skyline/nist-skyline.yml
+data:
+  input: ./input/massbank_eawag/Eawag
+  output: ./output
+  cache: ./input/cache
+  input_unzip: no
+  output_zip: no
+  output_wipe: no
+processing:
+- task: add_data
+  params:
+    source: ./settings_library/eawag_massbank_to_skyline/Uchem_ID_RT.tsv
+spectra_per_file: -1
+files_per_block: 500
+filename_out_schema: eawag_skyline.msp
+
